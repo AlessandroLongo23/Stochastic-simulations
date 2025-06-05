@@ -1,5 +1,4 @@
-from RNG import RNG
-import random
+from classes.RNG import RNG
 
 class LCG(RNG):
     def __init__(self, a: int = 1664525, c: int = 1013904223, m: int = 2**32):

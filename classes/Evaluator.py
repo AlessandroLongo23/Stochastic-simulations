@@ -1,8 +1,10 @@
 import math
 import numpy as np
-from RNG import RNG
 import random
 import matplotlib.pyplot as plt
+
+from classes.RNG import RNG
+
 class Evaluator:
     def __init__(self, rng: RNG):
         self.rng = rng
@@ -19,7 +21,7 @@ class Evaluator:
 
         return T / simulations
 
-    def kolmogorov_smirnov(self, n: int = 10000, simulations: int = 100) -> float:
+    def kolmogorov_smirnov(self, n: int = 10000, simulations: int = 100, savepath = None) -> float:
         D = []
 
         for _ in range(simulations):
@@ -33,10 +35,12 @@ class Evaluator:
         Z = [(math.sqrt(n) + 0.12 + 0.11 / math.sqrt(n)) * D[i] for i in range(len(D))]
 
         plt.hist(Z, bins = 50)
+        if savepath:
+            plt.savefig(savepath)
         plt.show()
 
 
-    def above_below(self, n: int = 10000, simulations: int = 100) -> float:
+    def above_below(self, n: int = 10000, simulations: int = 100, savepath = None) -> float:
         number_of_runs = []
         for _ in range(simulations):
             data = self.rng.simulate(random.randint(1, 10000), n)
@@ -62,11 +66,13 @@ class Evaluator:
             # variance = 2 * (n1 * n2) * (2 * n1 * n2 - n1 - n2) / ((n1 + n2) ** 2 * (n1 + n2 - 1))
 
         plt.hist(number_of_runs, bins = 50)
+        if savepath:
+            plt.savefig(savepath)
         plt.show()
 
         # return runs, mean, variance
 
-    def up_down_knuth(self, n: int = 10000, simulations: int = 100) -> float:
+    def up_down_knuth(self, n: int = 10000, simulations: int = 100, savepath = None) -> float:
         Z = []
         for _ in range(simulations):
             data = self.rng.simulate(random.randint(1, 10000), n)
@@ -111,9 +117,11 @@ class Evaluator:
             Z.append((1 / (n - 6)) * diff.T @ A @ diff)
         
         plt.hist(Z, bins = 50)
+        if savepath:
+            plt.savefig(savepath)
         plt.show()
 
-    def up_and_down(self, n: int = 10000, simulations: int = 100) -> float:
+    def up_and_down(self, n: int = 10000, simulations: int = 100, savepath = None) -> float:
         Z = []
         for _ in range(simulations):
             data = self.rng.simulate(random.randint(1, 10000), n)
@@ -141,10 +149,12 @@ class Evaluator:
             Z.append((X - (2 * n - 1) / 3) / math.sqrt((16 * n - 29) / 90))
 
         plt.hist(Z, bins = 50)
+        if savepath:
+            plt.savefig(savepath)
         plt.show()
 
 
-    def estimated_correlation(self, n: int = 10000, simulations: int = 1000, gap: int = 1) -> float:
+    def estimated_correlation(self, n: int = 10000, simulations: int = 1000, gap: int = 1, savepath = None) -> float:
         c = []
         for _ in range(simulations):
             data = self.rng.simulate(random.randint(1, 10000), n, normalize = True)
@@ -158,5 +168,7 @@ class Evaluator:
             c.append(1 / (n - gap) * sum_of_products)
 
         plt.hist(c, bins = 50)
+        if savepath:
+            plt.savefig(savepath)
         plt.show()
 
