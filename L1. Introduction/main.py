@@ -1,4 +1,8 @@
-from classes.LCG import LCG
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from classes.RNG import LCG
 from classes.Plotter import Plotter
 from classes.Evaluator import Evaluator
 
@@ -15,7 +19,6 @@ def main() -> None:
     evaluator.chi_square()
     evaluator.kolmogorov_smirnov(n = 1000, simulations = 1000, savepath = 'kolmogorov_smirnov.png')
 
-    # run tests
     evaluator.above_below(n = 1000, simulations = 10000, savepath = 'above_below.png')
     evaluator.up_down_knuth(n = 1000, simulations = 10000, savepath = 'up_down_knuth.png')
     evaluator.up_and_down(n = 1000, simulations = 10000, savepath = 'up_and_down.png')
