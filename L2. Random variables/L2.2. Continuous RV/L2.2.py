@@ -7,7 +7,7 @@ from classes.CRVG import Uniform, Exponential, Gaussian, Pareto
 from classes.Evaluator import Evaluator
 from classes.Simulator import Simulator
 from classes.Plotter import Plotter
-# from classes.Composition import Composition
+from classes.Composition import Composition
 
 def main() -> None:
     simulator = Simulator()
@@ -46,10 +46,17 @@ def main() -> None:
     plotter.plot_density(data, savepath='pareto comparison.png', x_range = [1, 5])
 
     evaluator = Evaluator()
-    evaluator.analyze_pareto(generator = pareto, n = 10000, simulations = 1000, savepath = 'pareto_analysis.png')
+    evaluator.analyze_pareto(generator = paretos[0], n = 10000, simulations = 1000, savepath = 'pareto_analysis.png')
 
-    composition = Composition(pareto, pareto)
-    composition.simulate(n = 100000, savepath = 'pareto_composition.png')
+    generators = [
+        Exponential(lambda_ = 3),
+        Exponential(lambda_ = 4),
+        Exponential(lambda_ = 5),
+    ]
+
+    weights = [0.2, 0.3, 0.5]
+    composition = Composition(generators, weights)
+    composition.simulate(n = 100000, savepath = 'exponential_composition.png')
 
 if __name__ == "__main__":
     main()
