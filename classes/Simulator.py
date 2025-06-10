@@ -1,7 +1,5 @@
 from classes.CRVG import CRVG
 from classes.DRVG import DRVG
-from classes.Plotter import Plotter
-import numpy as np
 
 class Simulator:
     def __init__(self):

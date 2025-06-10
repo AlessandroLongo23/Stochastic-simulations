@@ -13,14 +13,21 @@ class Uniform(CRVG):
         self.name = 'Uniform'
         self.a = a
         self.b = b
+        self.id = f'uniform_{self.a}_{self.b}'
         self.p = [1 / (b - a + 1) for _ in range(b - a + 1)]
+    
+    def mean(self):
+        return (self.a + self.b) / 2
+    
+    def variance(self):
+        return (self.b - self.a) ** 2 / 12
 
     def sample(self, a: int = None, b: int = None):
         a = self.a if a is None else a
         b = self.b if b is None else b
 
         U = np.random.uniform()
-        return math.floor(U * (b - a + 1)) + a
+        return U * (b - a) + a
     
     def theoretical_density(self, x):
         return 1 / (self.b - self.a + 1)
@@ -50,12 +57,34 @@ class Uniform(CRVG):
     #     b = other.sample()
     #     return self.sample(a, b)
 
+
+class Constant(Uniform):
+    def __init__(self, value):
+        super().__init__(a = value, b = value)
+
+        self.name = 'Constant'
+        self.id = f'constant_{value}'
+        self.value = value
+        # self.p = [1 for _ in range(100)]
+    
+    def mean(self):
+        return self.value
+    
+    def variance(self):
+        return 0
+
 class Exponential(CRVG):
     def __init__(self, lambda_):
         self.name = 'Exponential'
         self.id = f'exponential_{lambda_}'
         self.lambda_ = lambda_
         self.p = [math.exp(-lambda_ * x) for x in range(100)]
+
+    def mean(self):
+        return 1 / self.lambda_
+    
+    def variance(self):
+        return 1 / (self.lambda_ ** 2)
 
     def sample(self, lambda_ = None):
         lambda_ = self.lambda_ if lambda_ is None else lambda_
@@ -91,6 +120,43 @@ class Exponential(CRVG):
     # def compose(self, other: CRVG):
     #     lambda_ = other.sample()
     #     return self.sample(lambda_ = lambda_)
+
+class HyperExponential(CRVG):
+    def __init__(self, lambdas, weights):
+        self.name = 'HyperExponential'
+        self.id = f'hyper_exponential_{lambdas}_{weights}'
+        self.lambdas = lambdas
+        self.weights = weights
+        self.exponentials = [Exponential(lambda_ = lambda_) for lambda_ in lambdas]
+        # self.p = [self.theoretical_density(x) for x in np.linspace(0.1, 10, 100)]
+
+    def mean(self):
+        return sum(self.weights[i] * (1 / self.lambdas[i]) for i in range(len(self.lambdas)))
+    
+    def variance(self):
+        mean_val = self.mean()
+        second_moment = sum(self.weights[i] * (2 / (self.lambdas[i] ** 2)) for i in range(len(self.lambdas)))
+        return second_moment - mean_val ** 2
+
+    def sample(self):
+        U = np.random.uniform()
+        for i, exponential in enumerate(self.exponentials):
+            if U < sum(self.weights[:i + 1]):
+                return exponential.sample()
+        return self.exponentials[-1].sample()
+    
+    def simulate(self, n, plot = True, savepath = False):
+        data = [self.sample() for _ in range(n)]
+        data = sorted(data)
+
+        x_range = np.linspace(min(data), max(data), 100)
+        label = f'HyperExponential (λ={self.lambdas}, w={self.weights})'
+
+        return data, x_range, label
+    
+    def theoretical_density(self, x):
+        return sum(self.weights[i] * self.exponentials[i].theoretical_density(x) for i in range(len(self.exponentials)))
+    
     
 class Gaussian(CRVG):
     def __init__(self, mu = 0, sigma = 1):
@@ -99,6 +165,12 @@ class Gaussian(CRVG):
         self.mu = mu
         self.sigma = sigma
         self.p = [math.exp(-(x - mu) ** 2 / (2 * sigma ** 2)) / (sigma * math.sqrt(2 * math.pi)) for x in range(100)]
+    
+    def mean(self):
+        return self.mu
+    
+    def variance(self):
+        return self.sigma ** 2
     
     def sample(self, mu = None, sigma = None):
         mu = self.mu if mu is None else mu
@@ -222,6 +294,12 @@ class Pareto(CRVG):
         self.beta = beta
         self.p = [1 - (self.beta / x) ** self.k for x in range(1, 30)]
 
+    def mean(self):
+        return self.beta * self.k / (self.k - 1)
+    
+    def variance(self):
+        return self.beta ** 2 * self.k / ((self.k - 1) ** 2 * (self.k - 2))
+
     def sample(self, k = None, beta = None):
         k = self.k if k is None else k
         beta = self.beta if beta is None else beta
@@ -266,10 +344,15 @@ class Gamma(CRVG):
         self.id = f'gamma_{k}_{theta}'
         self.k = k  # shape parameter (alpha)
         self.theta = theta  # scale parameter
-        # Theoretical density values for plotting
-        self.p = [self._pdf(x) for x in np.linspace(0.1, 10, 100)]
+        self.p = [self.theoretical_density(x) for x in np.linspace(0.1, 10, 100)]
     
-    def _pdf(self, x):
+    def mean(self):
+        return self.k * self.theta
+    
+    def variance(self):
+        return self.k * (self.theta ** 2)
+    
+    def theoretical_density(self, x):
         if x <= 0:
             return 0
         return (1 / (math.gamma(self.k) * (self.theta ** self.k))) * (x ** (self.k - 1)) * math.exp(-x / self.theta)
@@ -278,73 +361,118 @@ class Gamma(CRVG):
         k = self.k if k is None else k
         theta = self.theta if theta is None else theta
         
-        if k == 1:
-            # Gamma(1, theta) is Exponential(1/theta)
-            U = np.random.uniform()
-            return -theta * math.log(U)
-        elif k == int(k) and k > 1:
-            # For integer k, use sum of k exponential random variables
-            # Gamma(k, theta) = sum of k Exponential(1/theta) random variables
-            sum_exp = 0
-            for _ in range(int(k)):
-                U = np.random.uniform()
-                sum_exp += -math.log(U)
-            return theta * sum_exp
-        else:
-            # For non-integer k, use Ahrens-Dieter acceptance-rejection method
-            return self._ahrens_dieter_sample(k, theta)
+        return np.random.gamma(k, theta)
+
+        # if k == 1:
+        #     # Gamma(1, theta) is Exponential(1/theta)
+        #     U = np.random.uniform()
+        #     return -theta * math.log(U)
+        # elif k == int(k) and k > 1:
+        #     # For integer k, use sum of k exponential random variables
+        #     # Gamma(k, theta) = sum of k Exponential(1/theta) random variables
+        #     sum_exp = 0
+        #     for _ in range(int(k)):
+        #         U = np.random.uniform()
+        #         sum_exp += -math.log(U)
+        #     return theta * sum_exp
+        # else:
+        #     # For non-integer k, use Ahrens-Dieter acceptance-rejection method
+        #     return self._ahrens_dieter_sample(k, theta)
     
-    def _ahrens_dieter_sample(self, k, theta):
-        """Ahrens-Dieter acceptance-rejection method for non-integer shape parameter"""
-        if k < 1:
-            # For k < 1, use the method: Gamma(k) = Gamma(k+1) * U^(1/k)
-            gamma_k_plus_1 = self._ahrens_dieter_sample(k + 1, 1)
-            U = np.random.uniform()
-            return theta * gamma_k_plus_1 * (U ** (1/k))
+    # def _ahrens_dieter_sample(self, k, theta):
+    #     """Ahrens-Dieter acceptance-rejection method for non-integer shape parameter"""
+    #     if k < 1:
+    #         # For k < 1, use the method: Gamma(k) = Gamma(k+1) * U^(1/k)
+    #         gamma_k_plus_1 = self._ahrens_dieter_sample(k + 1, 1)
+    #         U = np.random.uniform()
+    #         return theta * gamma_k_plus_1 * (U ** (1/k))
         
-        # For k >= 1, use Ahrens-Dieter method
-        d = k - 1/3
-        c = 1 / math.sqrt(9 * d)
+    #     # For k >= 1, use Ahrens-Dieter method
+    #     d = k - 1/3
+    #     c = 1 / math.sqrt(9 * d)
         
-        while True:
-            # Generate normal random variable
-            U1, U2 = np.random.uniform(size=2)
-            Z = math.sqrt(-2 * math.log(U1)) * math.cos(2 * math.pi * U2)  # Standard normal
+    #     while True:
+    #         # Generate normal random variable
+    #         U1, U2 = np.random.uniform(size=2)
+    #         Z = math.sqrt(-2 * math.log(U1)) * math.cos(2 * math.pi * U2)  # Standard normal
             
-            if Z > -1/c:
-                V = (1 + c * Z) ** 3
-                U = np.random.uniform()
+    #         if Z > -1/c:
+    #             V = (1 + c * Z) ** 3
+    #             U = np.random.uniform()
                 
-                if math.log(U) < 0.5 * Z * Z + d * (1 - V + math.log(V)):
-                    return theta * d * V
+    #             if math.log(U) < 0.5 * Z * Z + d * (1 - V + math.log(V)):
+    #                 return theta * d * V
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
         data = sorted(data)
         
-        if plot:
-            from scipy import stats
-            density = stats.gaussian_kde(data)
-            x_range = np.linspace(0.01, max(data) * 1.2, 200)
-            plt.plot(x_range, density(x_range), 'b-', linewidth=2, label='Estimated Density')
+        # if plot:
+        #     from scipy import stats
+        #     density = stats.gaussian_kde(data)
+        #     x_range = np.linspace(0.01, max(data) * 1.2, 200)
+        #     plt.plot(x_range, density(x_range), 'b-', linewidth=2, label='Estimated Density')
             
-            # Theoretical density
-            theoretical_density = [self._pdf(x) for x in x_range]
-            plt.plot(x_range, theoretical_density, 'r--', linewidth=2, label='Theoretical Density')
+        #     # Theoretical density
+        #     theoretical_density = [self.theoretical_density(x) for x in x_range]
+        #     plt.plot(x_range, theoretical_density, 'r--', linewidth=2, label='Theoretical Density')
             
-            plt.xlabel('Value')
-            plt.ylabel('Density')
-            plt.title(f'Gamma Distribution Density (k={self.k}, θ={self.theta})')
-            plt.legend()
+        #     plt.xlabel('Value')
+        #     plt.ylabel('Density')
+        #     plt.title(f'Gamma Distribution Density (k={self.k}, θ={self.theta})')
+        #     plt.legend()
             
-            if savepath:
-                plt.savefig(savepath)
-            plt.show()
+        #     if savepath:
+        #         plt.savefig(savepath)
+        #     plt.show()
 
-        return data
+        x_range = np.linspace(0, max(data), 100)
+        label = f'Gamma (k={self.k}, θ={self.theta})'
+
+        return data, x_range, label
     
     # def compose(self, other: CRVG):
     #     k = other.sample()
     #     theta = other.sample()
     #     return self.sample(k = k, theta = theta)
 
+class Erlang(Gamma):
+    def __init__(self, n = 2, lambda_ = 1):
+        if n != int(n):
+            raise ValueError('n must be an integer')
+        
+        super().__init__(k = n, theta = 1 / lambda_)
+        self.name = 'Erlang'
+        self.id = f'erlang_{int(n)}_{lambda_}'
+    
+
+class Poisson(CRVG):
+    def __init__(self, lambda_):
+        self.name = 'Poisson'
+        self.id = f'poisson_{lambda_}'
+        self.lambda_ = lambda_
+        self.p = [math.exp(-lambda_) * (lambda_ ** x) / math.gamma(x + 1) for x in range(100)]
+
+    def mean(self):
+        return self.lambda_
+    
+    def variance(self):
+        return self.lambda_
+
+    def sample(self, lambda_ = None):
+        return np.random.poisson(self.lambda_)
+
+    def theoretical_density(self, x):
+        return math.exp(-self.lambda_) * (self.lambda_ ** x) / math.gamma(x + 1)
+    
+    def simulate(self, n, plot = True, savepath = False):
+        data = [self.sample() for _ in range(n)]
+        
+        x_range = np.linspace(0, max(data), 100)
+        label = f'Poisson (λ={self.lambda_})'
+
+        return data, x_range, label
+    
+    # def compose(self, other: CRVG):
+    #     lambda_ = other.sample()
+    #     return self.sample(lambda_ = lambda_)
