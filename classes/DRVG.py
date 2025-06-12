@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+from classes.Function import Function
+
 class DRVG:
     def __init__(self):
         pass
@@ -80,8 +82,9 @@ class Discrete(DRVG):
     def setProbabilities(self, p):
         self.p = p
         if sum(p) != 1:
-            raise ValueError("The sum of probabilities must be 1")
-        
+            # raise ValueError("The sum of probabilities must be 1")
+            self.p = [x / sum(p) for x in p]
+
     def simulate(self, n: int, plot: bool = True, savepath: str = False, seed: int = None, normalize: bool = False, sort: bool = False):
         if seed:
             np.random.seed(seed)
@@ -231,3 +234,31 @@ class DiscreteAlias(Discrete):
         
     def sample(self):
         return self.alias(self.F, self.L)
+    
+
+class CustomDRVG(DRVG):
+    def __init__(self, equation: Function, support: int | tuple, name: str = None):
+        if isinstance(support, int):
+            self.support = (0, support)
+        else:
+            self.support = support
+
+        self.p = [equation.evaluate(i) for i in range(self.support[0], self.support[1])]
+        self.p = [x / sum(self.p) for x in self.p]
+        self.name = name
+
+    def sample(self):
+        return np.random.choice(len(self.p), p=self.p)
+    
+    def simulate(self, n, plot = True, savepath = False):
+        data = [self.sample() for _ in range(n)]
+        if plot:
+            plt.hist(data, bins=len(self.p), range=(self.support[0], self.support[1]))
+            plt.xlabel('Outcome')
+            plt.ylabel('Frequency')
+            plt.title(f'Custom Distribution {self.name}')
+            if savepath:
+                plt.savefig(f'{savepath}.png')
+            plt.show()
+
+        return data
