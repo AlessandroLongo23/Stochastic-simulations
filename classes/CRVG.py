@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 import os
+import random
 
 class CRVG:
     def __init__(self):
@@ -28,7 +29,7 @@ class Uniform(CRVG):
         a = self.a if a is None else a
         b = self.b if b is None else b
 
-        U = np.random.uniform()
+        U = random.uniform(0, 1)
         return U * (b - a) + a
     
     def theoretical_density(self, x):
@@ -70,10 +71,13 @@ class Exponential(CRVG):
     def variance(self):
         return 1 / (self.lambda_ ** 2)
 
-    def sample(self, lambda_ = None):
+    def sample(self, lambda_ = None, builtin = True):
         lambda_ = self.lambda_ if lambda_ is None else lambda_
 
-        U = np.random.uniform()
+        if builtin:
+            return random.expovariate(lambda_)
+        
+        U = random.uniform(0, 1)
         return -math.log(U) / lambda_
     
     def theoretical_density(self, x):
@@ -82,7 +86,7 @@ class Exponential(CRVG):
         return self.lambda_ * math.exp(-self.lambda_ * x)
     
     def simulate(self, n: int):
-        data = [self.sample() for _ in range(n)]
+        data = [self.sample() for i in range(n)]
 
         x_range = np.linspace(min(data), max(data), 100)
         label = f'Exponential (λ={self.lambda_})'
@@ -105,16 +109,18 @@ class HyperExponential(CRVG):
         second_moment = sum(self.weights[i] * (2 / (self.lambdas[i] ** 2)) for i in range(len(self.lambdas)))
         return second_moment - mean_val ** 2
 
-    def sample(self):
-        U = np.random.uniform()
+    def sample(self, builtin = True):
+        if builtin:
+            return random.choices(self.exponentials, weights = self.weights)[0].sample()
+
+        U = random.uniform(0, 1)
         for i, exponential in enumerate(self.exponentials):
             if U < sum(self.weights[:i + 1]):
                 return exponential.sample()
         return self.exponentials[-1].sample()
     
     def simulate(self, n, plot = True, savepath = False):
-        data = [self.sample() for _ in range(n)]
-        data = sorted(data)
+        data = [self.sample() for i in range(n)]
 
         x_range = np.linspace(min(data), max(data), 100)
         label = f'HyperExponential (λ={self.lambdas}, w={self.weights})'
@@ -141,14 +147,17 @@ class Gaussian(CRVG):
     def variance(self):
         return self.sigma ** 2
     
+    def cdf(self, x):
+        return 0.5 * (1 + math.erf((x - self.mu) / (self.sigma * math.sqrt(2))))
+    
     def sample(self, mu = None, sigma = None, builtin = True):
         if builtin:
-            return np.random.normal(self.mu, self.sigma)
+            return random.gauss(self.mu, self.sigma)
         
         mu = self.mu if mu is None else mu
         sigma = self.sigma if sigma is None else sigma
 
-        U = np.random.uniform(size = 2)
+        U = [random.uniform(0, 1) for _ in range(2)]
 
         r = math.sqrt(-2 * math.log(U[0]))
         theta = 2 * math.pi * U[1]
@@ -162,7 +171,6 @@ class Gaussian(CRVG):
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
-        data = sorted(data)
         
         x_range = np.linspace(min(data), max(data), 100)
         label = f'Gaussian (μ={self.mu}, σ={self.sigma})'
@@ -255,12 +263,18 @@ class Pareto(CRVG):
     
     def variance(self):
         return self.beta ** 2 * self.k / ((self.k - 1) ** 2 * (self.k - 2))
+    
+    def median(self):
+        return self.beta * (2 ** (1 / self.k))
 
-    def sample(self, k = None, beta = None):
+    def sample(self, k = None, beta = None, builtin = True):
+        # if builtin:
+        #     return random.pareto(self.k, self.beta)
+        
         k = self.k if k is None else k
         beta = self.beta if beta is None else beta
 
-        U = np.random.uniform()
+        U = random.uniform(0, 1)
         return beta * (U ** (-1 / k))
     
     def theoretical_density(self, x):
@@ -270,7 +284,6 @@ class Pareto(CRVG):
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
-        data = sorted(data)
 
         x_range = np.linspace(self.beta, max(data), 100)
         label = f'Pareto (k={self.k}, β={self.beta})'
@@ -300,11 +313,10 @@ class Gamma(CRVG):
         k = self.k if k is None else k
         theta = self.theta if theta is None else theta
         
-        return np.random.gamma(k, theta)
+        return random.gammavariate(k, theta)
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
-        data = sorted(data)
         
         x_range = np.linspace(0, max(data), 100)
         label = f'Gamma (k={self.k}, θ={self.theta})'
@@ -312,44 +324,69 @@ class Gamma(CRVG):
         return data, x_range, label
 
 
-class Erlang(Gamma):
-    def __init__(self, n = 2, lambda_ = 1):
-        if n != int(n):
-            raise ValueError('n must be an integer')
-        
-        super().__init__(k = n, theta = 1 / lambda_)
-        self.name = 'Erlang'
-        self.id = f'erlang_{int(n)}_{lambda_}'
-    
+class Erlang(CRVG):
+    def __init__(self, k = 2, lambda_ = 1):
+        if k != int(k):
+            raise ValueError('k must be an integer')
 
-class Poisson(CRVG):
-    def __init__(self, lambda_):
-        self.name = 'Poisson'
-        self.id = f'poisson_{lambda_}'
+        self.name = 'Erlang'
+        self.id = f'erlang_{int(k)}_{lambda_}'
+        self.k = k
         self.lambda_ = lambda_
-        # self.p = [math.exp(-lambda_) * (lambda_ ** x) / math.gamma(x + 1) for x in range(100)]
 
     def mean(self):
-        return self.lambda_
+        return self.k / self.lambda_
     
     def variance(self):
-        return self.lambda_
+        return self.k / (self.lambda_ ** 2)
+    
+    def sample(self, k = None, lambda_ = None):
+        k = self.k if k is None else k
+        lambda_ = self.lambda_ if lambda_ is None else lambda_
 
-    def sample(self, lambda_ = None):
-        return np.random.poisson(self.lambda_)
-
+        return random.gammavariate(k, 1 / lambda_)
+    
     def theoretical_density(self, x):
         if isinstance(x, np.ndarray):
             return np.array([self.theoretical_density(x_i) for x_i in x])
-        return math.exp(-self.lambda_) * (self.lambda_ ** x) / math.gamma(x + 1)
+        return (self.lambda_ ** self.k) * (x ** (self.k - 1)) * math.exp(-self.lambda_ * x) / math.gamma(self.k)
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
         
         x_range = np.linspace(0, max(data), 100)
-        label = f'Poisson (λ={self.lambda_})'
-
+        label = f'Erlang (k={self.k}, λ={self.lambda_})'
+        
         return data, x_range, label
+
+# class Poisson(CRVG):
+#     def __init__(self, lambda_):
+#         self.name = 'Poisson'
+#         self.id = f'poisson_{lambda_}'
+#         self.lambda_ = lambda_
+#         # self.p = [math.exp(-lambda_) * (lambda_ ** x) / math.gamma(x + 1) for x in range(100)]
+
+#     def mean(self):
+#         return self.lambda_
+    
+#     def variance(self):
+#         return self.lambda_
+
+#     def sample(self, lambda_ = None):
+#         return np.random.poisson(self.lambda_)
+
+#     def theoretical_density(self, x):
+#         if isinstance(x, np.ndarray):
+#             return np.array([self.theoretical_density(x_i) for x_i in x])
+#         return math.exp(-self.lambda_) * (self.lambda_ ** x) / math.gamma(x + 1)
+    
+#     def simulate(self, n, plot = True, savepath = False):
+#         data = [self.sample() for _ in range(n)]
+        
+#         x_range = np.linspace(0, max(data), 100)
+#         label = f'Poisson (λ={self.lambda_})'
+
+#         return data, x_range, label
     
     # def compose(self, other: CRVG):
     #     lambda_ = other.sample()
@@ -412,10 +449,10 @@ class CustomDistribution(CRVG):
         
         while iterations < max_iterations:
             # Sample x uniformly from the support
-            x = np.random.uniform(self.support[0], self.support[1])
+            x = random.uniform(self.support[0], self.support[1])
             
             # Sample y uniformly from [0, max_value]
-            y = np.random.uniform(0, self.max_value)
+            y = random.uniform(0, self.max_value)
             
             # Evaluate the distribution function at x
             try:
@@ -433,11 +470,10 @@ class CustomDistribution(CRVG):
         
         # If we reach here, something went wrong
         print(f"Warning: Rejection sampling failed after {max_iterations} iterations")
-        return np.random.uniform(self.support[0], self.support[1])
+        return random.uniform(self.support[0], self.support[1])
     
     def simulate(self, n, plot = True, savepath = False):
         data = [self.sample() for _ in range(n)]
-        data = sorted(data)
         
         x_range = np.linspace(min(data), max(data), 100)
         label = f'Custom Distribution ({self.distribution_function.__name__})'

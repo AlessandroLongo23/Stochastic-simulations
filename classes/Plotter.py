@@ -7,8 +7,19 @@ class Plotter:
     def __init__(self):
         pass
 
-    def plot_scatter(self, data, x_label = 'x[i]', y_label = 'x[i+1]', title = 'Scatter plot of the data', savepath = None):
-        plt.scatter(data[:-1], data[1:], s=0.1)
+    def plot_scatter(self, x_data, y_data, x_label = 'x[i]', y_label = 'x[i+1]', title = 'Scatter plot of the data', savepath = None):
+        plt.scatter(x_data, y_data, s=0.1)
+        plt.title(title)
+        plt.xlabel(x_label)
+        plt.ylabel(y_label)
+        if savepath:
+            if not os.path.exists('plots'):
+                os.makedirs('plots')
+            plt.savefig(os.path.join('plots', savepath))
+        plt.show()
+
+    def plot_line(self, x, y, x_label = 'x', y_label = 'y', title = 'Line plot of the data', savepath = None):
+        plt.plot(x, y, 'b-', linewidth=2, label='Data')
         plt.title(title)
         plt.xlabel(x_label)
         plt.ylabel(y_label)
@@ -74,9 +85,7 @@ class Plotter:
         
         plt.title(title)
         if savepath:
-            if not os.path.exists('plots'):
-                os.makedirs('plots')
-            plt.savefig(os.path.join('plots', savepath))
+            plt.savefig(savepath)
         plt.show()
 
     def plot_density(self, data, x_label='Value', y_label='Density', title='Density of the data', savepath=None, x_range=None):
@@ -168,3 +177,13 @@ class Plotter:
             plt.savefig(os.path.join('plots', savepath))
         plt.show()
         
+    def plot_path(self, coordinates, path, title = 'Path', savepath = None):
+        plt.scatter(coordinates[:, 0], coordinates[:, 1])
+        for i in range(len(path)):
+            plt.plot([coordinates[path[i], 0], coordinates[path[(i + 1) % len(path)], 0]], [coordinates[path[i], 1], coordinates[path[(i + 1) % len(path)], 1]])
+        plt.title(title)
+        if savepath:
+            if not os.path.exists(os.path.dirname(savepath)):
+                os.makedirs(os.path.dirname(savepath))
+            plt.savefig(savepath)
+        plt.show()

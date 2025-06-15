@@ -12,7 +12,7 @@ def main() -> None:
 
     plotter = Plotter()
     plotter.plot_histogram(data, classes = 10, savepath = 'histogram.png')
-    plotter.plot_scatter(data, savepath = 'scatter.png')
+    plotter.plot_scatter(data[:-1], data[1:], savepath = 'scatter.png')
 
     evaluator = Evaluator()
 

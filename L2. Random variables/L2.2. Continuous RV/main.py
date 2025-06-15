@@ -2,12 +2,13 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
-import random
-from classes.CRVG import Uniform, Exponential, Gaussian, Pareto, Poisson, Gamma, HyperExponential, Erlang
+import math
+from classes.CRVG import Uniform, Exponential, Gaussian, Pareto, Poisson, Gamma, HyperExponential, Erlang, CustomDistribution
 from classes.Evaluator import Evaluator
 from classes.Simulator import Simulator
 from classes.Plotter import Plotter
 from classes.Composition import Composition
+
 
 def main() -> None:
     simulator = Simulator()
@@ -103,14 +104,28 @@ def main() -> None:
 
     ## ERLANG
 
-    erlangs = [
-        Erlang(n = 1, lambda_ = 1),
-        Erlang(n = 2, lambda_ = 1),
-        Erlang(n = 3, lambda_ = 1),
-        Erlang(n = 4, lambda_ = 1),
-    ]
-    data = simulator.simulate(erlangs, n=1000)
-    plotter.plot_density(data, savepath='erlang comparison.png')
+    # erlangs = [
+    #     Erlang(n = 1, lambda_ = 1),
+    #     Erlang(n = 2, lambda_ = 1),
+    #     Erlang(n = 3, lambda_ = 1),
+    #     Erlang(n = 4, lambda_ = 1),
+    # ]
+    # data = simulator.simulate(erlangs, n=1000)
+    # plotter.plot_density(data, savepath='erlang comparison.png')
+
+
+    # Exercise 4
+    mu = 4
+    y_distribution = CustomDistribution(lambda y: mu * math.exp(-mu * y), support = (1, 5))
+    data = [y_distribution.sample() for _ in range(1000)]
+    plotter.plot_density(data, savepath='y_distribution.png')
+
+    x_data = []
+    for y in data:
+        x_distribution = CustomDistribution(lambda x: y * math.exp(-y * x), support = (1, 5))
+        x_data.append(x_distribution.sample())
+
+    plotter.plot_density(x_data, savepath='x_distribution.png')
 
 if __name__ == "__main__":
     main()

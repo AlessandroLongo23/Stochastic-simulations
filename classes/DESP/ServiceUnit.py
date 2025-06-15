@@ -13,11 +13,6 @@ class ServiceUnit:
     def __str__(self):
         return f"ServiceUnit(name={self.name}, description={self.description}, parameters={self.parameters})"
     
-    def serve_customer(self, customer: Customer):
-        self.free = False
-        self.served_customer = customer
-        self.service_time = self.parameters['service_time'].sample()
-
     def check_if_free(self, time: int):
         if self.free:
             return
@@ -26,5 +21,14 @@ class ServiceUnit:
             self.free = True
             self.served_customer = None
             self.service_time = None
+
+    def serve_customer(self, customer: Customer):
+        self.free = False
+        self.served_customer = customer
+        self.service_time = self.parameters['service_time'].sample()
+
+        customer.service_time = self.service_time
+
+
 
 
