@@ -10,6 +10,122 @@ from classes.Estimator import Crude
 import numpy as np
 import matplotlib.pyplot as plt
 
+def exercise_1():
+    plotter = Plotter()
+
+    A = 8
+    m = 10
+    n = 10000
+    burn_in = n // 5
+    unnormalized_density = Function(lambda x: A ** x / (math.gamma(x + 1)))
+    mcmc = MCMC(
+        unnormalized_density = unnormalized_density,
+        m = m
+    )
+    c = sum([unnormalized_density.evaluate(x) for x in range(0, m + 1)])
+    normalized_density = Function(lambda x: unnormalized_density.evaluate(x) / c)
+
+    Ts = []
+    for _ in range(1):
+        mcmc.run(n = n, burn_in = burn_in, method = 'mh_ordinary')
+        plotter.plot_function(normalized_density, title = 'Normalized Density', x_label = 'x', y_label = 'f(x)', savepath = f'L5. Markov Chain/plots/Ex1_density.png')
+        plotter.plot_histogram(mcmc.chain, classes = mcmc.m + 1, title = 'Histogram of the chain', x_label = 'i', y_label = 'Frequency', savepath = f'L5. Markov Chain/plots/Ex1_chain.png')
+        
+        # Create overlapping plot of normalized density and histogram
+        # fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # # Plot histogram of MCMC chain (normalized to show probability density)
+        # counts, bins, patches = ax.hist(mcmc.chain, bins=range(m + 2), alpha=0.7, 
+        #                                density=True, label='MCMC Histogram', 
+        #                                align='left', rwidth=0.8)
+        
+        # # Plot theoretical normalized density as points/bars
+        # x_vals = range(m + 1)
+        # y_vals = [normalized_density.evaluate(x) for x in x_vals]
+        # ax.plot(x_vals, y_vals, 'ro-', linewidth=2, markersize=8, 
+        #         label='Theoretical Density', alpha=0.8)
+        
+        # ax.set_xlabel('x')
+        # ax.set_ylabel('Probability/Density')
+        # ax.set_title('Comparison: MCMC Chain vs Theoretical Density')
+        # ax.legend()
+        # ax.grid(True, alpha=0.3)
+        # ax.set_xticks(range(m + 1))
+        
+        # plt.tight_layout()
+        # plt.savefig(f'L5. Markov Chain/plots/Ex1_combined.png', dpi=300, bbox_inches='tight')
+        # plt.show()
+        # plt.close()
+
+        T = 0
+        for i in range(m + 1):
+            observed = len([x for x in mcmc.chain if x == i])
+            expected = normalized_density.evaluate(i) * (n - burn_in)
+            T += ((observed - expected) ** 2) / expected
+
+        Ts.append(T)
+
+    # plotter.plot_histogram(Ts, classes = 100, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency', savepath = 'L5. Markov Chain/plots/Ex1.png')
+
+
+def exercise_2():
+    plotter = Plotter()
+
+    A1, A2 = 4, 4
+    m = 10
+    n = 1000
+    burn_in = n // 5
+    unnormalized_density = Function(lambda x, y: (A1 ** x) / (math.factorial(x)) * (A2 ** y) / (math.factorial(y)))
+    mcmc = MCMC(
+        unnormalized_density = unnormalized_density,
+        m = m
+    )
+
+    c = sum([unnormalized_density.evaluate([x, y]) for x in range(0, m + 1) for y in range(0, m + 1)])
+    normalized_density = Function(lambda x, y: unnormalized_density.evaluate([x, y]) / c)
+
+    methods = ['mh_ordinary', 'mh_coordinate_wise', 'gibbs']
+    Ts = []
+
+    for method in methods:
+        for _ in range(100):
+            mcmc.run(n = n, burn_in = burn_in, method = method)
+            # plotter.plot_histogram(mcmc.chain, classes = mcmc.m + 1, title = f'Histogram of the chain ({method})', x_label = 'i', y_label = 'j', savepath = f'L5. Markov Chain/plots/Ex2 {method}.png')
+
+            T = 0
+            for i in range(m + 1):
+                for j in range(m + 1):
+                    observed = len([x for x in mcmc.chain if x == [i, j]])
+                    expected = normalized_density.evaluate([i, j]) * (n - burn_in)
+                    T += ((observed - expected) ** 2) / expected
+
+            Ts.append(T)
+
+        plotter.plot_histogram(Ts, classes = m + 1, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency', savepath = f'L5. Markov Chain/plots/Ex2 T {method}.png')
+
+def exercise_3():
+    sample_sizes = [10, 100, 1000]
+    
+    results = []
+    for n in sample_sizes:
+        result = run_bayesian_inference(n)
+        results.append(result)
+    
+    valid_results = [r for r in results if r is not None]
+    if valid_results:
+        plot_results(valid_results)
+        
+        print(f"\n{'='*80}")
+        print(f"SUMMARY COMPARISON")
+        print(f"{'='*80}")
+        print(f"{'n':>6} {'θ_true':>8} {'θ_est':>8} {'θ_std':>8} {'ψ_true':>8} {'ψ_est':>8} {'ψ_std':>8} {'Accept':>8} {'StepSize':>10}")
+        print(f"{'-'*80}")
+        
+        for r in valid_results:
+            print(f"{r['n']:>6} {r['true_theta']:>8.3f} {r['theta_mean']:>8.3f} {r['theta_std']:>8.3f} "
+                  f"{r['true_psi']:>8.3f} {r['psi_mean']:>8.3f} {r['psi_std']:>8.3f} "
+                  f"{r['diagnostics']['acceptance_rate']:>8.3f} {r['diagnostics']['final_step_size']:>10.6f}")
+
 def run_bayesian_inference(n_observations):
     print(f"\n{'='*60}")
     print(f"Running Bayesian Inference with n={n_observations} observations")
@@ -172,73 +288,6 @@ def plot_results(results_list):
     plt.show()
     plt.close()
 
-def exercise_1():
-    plotter = Plotter()
-
-    A = 8
-    m = 10
-    unnormalized_density = Function(lambda x: A ** x / (math.gamma(x + 1)))
-    mcmc = MCMC(
-        unnormalized_density = unnormalized_density,
-        m = m
-    )
-    mcmc.run(n = 10000, burn_in = 100)
-    plotter.plot_histogram(mcmc.chain, mcmc.m + 1, title = 'Histogram of the chain', x_label = 'x', y_label = 'Frequency', savepath = 'L5. Markov Chain/plots/Ex1.png')
-
-    estimator = Crude()
-    integral_value = estimator.estimateIntegral(
-        unnormalized_density,
-        a = 0,
-        b = 10,
-        n = 10000,
-    )
-
-    normalized_density = Function(lambda x: unnormalized_density.evaluate(x) / integral_value)
-
-    estimator.estimateIntegral(
-        normalized_density,
-        a = 0,
-        b = 10,
-        n = 10000,
-    )
-
-    plotter.plot_function(normalized_density, title = 'Normalized Density', x_label = 'x', y_label = 'f(x)')
-
-def exercise_2():
-    plotter = Plotter()
-
-    A1, A2 = 4, 4
-    m = 10
-    unnormalized_density = Function(lambda x, y: (A1 ** x) / (math.factorial(x)) * (A2 ** y) / (math.factorial(y)))
-    mcmc = MCMC(
-        unnormalized_density = unnormalized_density,
-        m = m
-    )
-    mcmc.run(n = 10000, burn_in = 100, method = 'gibbs')
-    plotter.plot_histogram(mcmc.chain, mcmc.m + 1, title = 'Histogram of the chain', x_label = 'x', y_label = 'Frequency', savepath = 'L5. Markov Chain/plots/Ex2.png')
-
-def exercise_3():
-    sample_sizes = [10, 100, 1000]
-    
-    results = []
-    for n in sample_sizes:
-        result = run_bayesian_inference(n)
-        results.append(result)
-    
-    valid_results = [r for r in results if r is not None]
-    if valid_results:
-        plot_results(valid_results)
-        
-        print(f"\n{'='*80}")
-        print(f"SUMMARY COMPARISON")
-        print(f"{'='*80}")
-        print(f"{'n':>6} {'θ_true':>8} {'θ_est':>8} {'θ_std':>8} {'ψ_true':>8} {'ψ_est':>8} {'ψ_std':>8} {'Accept':>8} {'StepSize':>10}")
-        print(f"{'-'*80}")
-        
-        for r in valid_results:
-            print(f"{r['n']:>6} {r['true_theta']:>8.3f} {r['theta_mean']:>8.3f} {r['theta_std']:>8.3f} "
-                  f"{r['true_psi']:>8.3f} {r['psi_mean']:>8.3f} {r['psi_std']:>8.3f} "
-                  f"{r['diagnostics']['acceptance_rate']:>8.3f} {r['diagnostics']['final_step_size']:>10.6f}")
 
 if __name__ == "__main__":
     exercise_1()

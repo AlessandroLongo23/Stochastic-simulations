@@ -95,8 +95,8 @@ def main():
     os.makedirs('plots', exist_ok=True)
     
     # exercise_1()
-    # exercise_2()
-    exercise_3()
+    exercise_2()
+    # exercise_3()
     
 
 if __name__ == "__main__":

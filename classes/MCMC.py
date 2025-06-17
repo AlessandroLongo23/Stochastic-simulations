@@ -17,19 +17,17 @@ class MCMC:
             self.gibbs(n, domain)
         else:
             self.metropolis_hastings(n, method, domain, verbose)
-        self.burn_in(n = burn_in)
+        self.burn_in(burn_in = burn_in)
 
         return self.chain
     
     def gibbs(self, n, domain):
-        # initialize the chain
         vars_ = self.unnormalized_density.f.__code__.co_argcount
         if domain == 'discrete':
             X = np.random.randint(0, self.m + 1, size = vars_)
         else:
             X = np.random.uniform(self.epsilon, 100, size = vars_)
 
-        # run the algorithm
         for _ in range(n):
             for i in range(vars_):
                 X = self.gibbs_next(X, i)
@@ -81,9 +79,10 @@ class MCMC:
             else:
                 if method == 'mh_ordinary':
                     delta = np.random.randint(-1, 2, size = len(X))
-                elif method == 'mh_coordinate-wise':
+                elif method == 'mh_coordinate_wise':
                     delta = [0] * len(X)
                     delta[np.random.randint(0, len(X))] = np.random.randint(-1, 2)
+
                 return [min(self.m, max(0, x + d)) for x, d in zip(X, delta)]
         else:
             if isinstance(X, float):
@@ -92,7 +91,7 @@ class MCMC:
             else:
                 if method == 'mh_ordinary':
                     delta = np.random.normal(0, 1, size = len(X))
-                elif method == 'mh_coordinate-wise':
+                elif method == 'mh_coordinate_wise':
                     delta = [0] * len(X)
                     delta[np.random.randint(0, len(X))] = np.random.normal(0, 1)
 
@@ -106,8 +105,8 @@ class MCMC:
             return proposal
         return X
     
-    def burn_in(self, n = 100):
-        self.chain = self.chain[n:]
+    def burn_in(self, burn_in = 100):
+        self.chain = self.chain[burn_in:]
 
 
 class AdaptiveStepSizer:
@@ -171,7 +170,7 @@ class CustomMCMC(MCMC):
             else:
                 if method == 'mh_ordinary':
                     delta = np.random.normal(0, step_size, size=len(X))
-                elif method == 'mh_coordinate-wise':
+                elif method == 'mh_coordinate_wise':
                     delta = [0] * len(X)
                     delta[np.random.randint(0, len(X))] = np.random.normal(0, step_size)
                 return [max(self.epsilon, x + d) for x, d in zip(X, delta)]

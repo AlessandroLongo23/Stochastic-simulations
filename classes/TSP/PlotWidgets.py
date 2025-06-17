@@ -289,10 +289,11 @@ class ComposablePlotter:
         self.widgets = []
         
         # Add standard widgets
+        self.set_layout(2, 2)
         self.add_widget(CostEvolutionWidget())
         self.add_widget(TemperatureWidget())
         self.add_widget(AcceptanceRateWidget())
-        self.add_widget(StatisticsWidget())
+        # self.add_widget(StatisticsWidget())
         
         if coordinates is not None:
             self.add_widget(SolutionPathWidget())

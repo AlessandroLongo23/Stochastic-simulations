@@ -13,9 +13,7 @@ class Plotter:
         plt.xlabel(x_label)
         plt.ylabel(y_label)
         if savepath:
-            if not os.path.exists('plots'):
-                os.makedirs('plots')
-            plt.savefig(os.path.join('plots', savepath))
+            plt.savefig(savepath)
         plt.show()
 
     def plot_line(self, x, y, x_label = 'x', y_label = 'y', title = 'Line plot of the data', savepath = None):
@@ -24,9 +22,7 @@ class Plotter:
         plt.xlabel(x_label)
         plt.ylabel(y_label)
         if savepath:
-            if not os.path.exists('plots'):
-                os.makedirs('plots')
-            plt.savefig(os.path.join('plots', savepath))
+            plt.savefig(savepath)
         plt.show()
 
     def plot_function(self, function, x_label = 'x', y_label = 'f(x)', title = 'Function', savepath = None):
@@ -35,12 +31,10 @@ class Plotter:
         plt.xlabel(x_label)
         plt.ylabel(y_label)
         if savepath:
-            if not os.path.exists('plots'):
-                os.makedirs('plots')
-            plt.savefig(os.path.join('plots', savepath))
+            plt.savefig(savepath)
         plt.show()
 
-    def plot_histogram(self, data, classes = 10, theoretical_density = None, x_label = 'Value', y_label = 'Frequency', title = 'Histogram of the data', savepath = None):
+    def plot_histogram(self, data, range_ = None, classes = 10, theoretical_density = None, x_label = 'Value', y_label = 'Frequency', title = 'Histogram of the data', savepath = None):
         # Handle different input formats and determine if data is 1D or 2D
         if isinstance(data, (list, tuple)) and len(data) == 2 and all(isinstance(d, (list, tuple, np.ndarray)) for d in data):
             # Case: data is ([x_values], [y_values])
@@ -77,7 +71,11 @@ class Plotter:
                 print("Warning: theoretical_density parameter is ignored for 2D histograms")
         else:
             # 1D histogram (existing behavior)
-            plt.hist(data, bins=classes, edgecolor='black')
+            if range_ is not None: 
+                plt.hist(data, range = range_, bins=classes, edgecolor='black')
+            else:
+                plt.hist(data, bins=classes, edgecolor='black')
+
             if theoretical_density:
                 plt.plot(theoretical_density, 'r--', linewidth=2, label='Theoretical Density')
             plt.xlabel(x_label)
@@ -172,9 +170,7 @@ class Plotter:
         plt.title(title)
         plt.legend()
         if savepath:
-            if not os.path.exists('plots'):
-                os.makedirs('plots')
-            plt.savefig(os.path.join('plots', savepath))
+            plt.savefig(savepath)
         plt.show()
         
     def plot_path(self, coordinates, path, title = 'Path', savepath = None):

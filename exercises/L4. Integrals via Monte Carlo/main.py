@@ -4,6 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import math
+import time
 
 from classes.Estimator import Crude, Antithetic, Control, Stratified, ImportanceSampling
 from classes.CRVG import Gaussian, CustomDistribution, Exponential
@@ -74,24 +75,26 @@ def main():
     bins = 50
     lambdas = np.linspace(0.1, 10, bins)
     stds = []
+    means = []
     for lambda_ in lambdas:
         estimator = ImportanceSampling()
-        _, std, _ = estimator.estimateIntegral(
+        mean, std, _ = estimator.estimateIntegral(
             target_fn=CustomDistribution(lambda x: np.exp(x), support=(0, 10), name = 'f(x) = e^x'), 
             importance_distribution=CustomDistribution(lambda x: lambda_ * np.exp(-lambda_ * x), support=(0, 10), name = 'f(x) = λe^(-λx)'), 
             a=0, b=1, 
-            n=2500
+            n=10000
         )
-
+        means.append(mean)
         stds.append(std)
 
     plotter = Plotter()
-    plotter.plot_line(lambdas, stds, 'Lambda', 'Standard deviation', 'Standard deviation')
+    plotter.plot_line(x = lambdas, y = stds, x_label = 'Lambda', y_label = 'Standard deviation', title = 'Standard deviation over lambda', savepath = 'standard_deviation_over_lambda.png')
 
     # find lambda that minimizes std
     min_std = min(stds)
     min_lambda = lambdas[stds.index(min_std)]
-    print(f'Lambda that minimizes std: {min_lambda}')
+    print("Estimate of integral: ", means[stds.index(min_std)])
+    print(f'Lambda that minimizes std: {min_lambda}. Min std: {min_std}')
 
 
 if __name__ == "__main__":
