@@ -4,44 +4,75 @@ import random
 import matplotlib.pyplot as plt
 import os
 import time
+from scipy.stats import ttest_ind, chisquare
 
 from classes.RNG import RNG
 from classes.CRVG import CRVG, Pareto
-from classes.DRVG import DRVG
+from classes.DRVG import DRVG, Discrete, Geometric
+from classes.Plotter import Plotter
 
 class Evaluator:
     def __init__(self):
         pass
 
-    def chi_square(self, generators: list[RNG | CRVG | DRVG], n: int = 10000, simulations: int = 100, classes: int = 10, savepath = None) -> dict:
+    def p_value(self, generator: RNG | CRVG | DRVG, n: int = 10000, simulations: int = 100, savepath = None) -> dict:
+        p_values = []
+
+        for _ in range(simulations):
+            data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = True, plot = False, savepath = False)
+            if isinstance(data, dict):
+                data1 = data['observed']
+            else:
+                data1 = data
+
+            data2 = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = True, plot = False, savepath = False)
+            if isinstance(data2, dict):
+                data2 = data2['observed']
+            else:
+                data2 = data2
+
+            p_values.append(ttest_ind(data1, data2).pvalue)
+
+        plotter = Plotter()
+        plotter.plot_histogram(p_values, title = f'P-value - {generator.name}', x_label = 'P-value', y_label = 'Frequency', savepath = savepath)
+            
+    def chi_square(self, generators: list[RNG | CRVG | DRVG], n: int = 10000, simulations: int = 100, savepath = None, classes: int = 10) -> dict:
         results = {}
         
         for idx, generator in enumerate(generators):
             Ts = []
 
-            if isinstance(generator, RNG | CRVG):
-                p = [1 / classes for _ in range(classes)]
-            else:
-                p = generator.p
+            if isinstance(generator, CRVG):
+                points = np.linspace(0, 50, 100).tolist()
+                p = [generator.cdf(points[i + 1]) - generator.cdf(points[i]) for i in range(len(points) - 1)]
+            elif isinstance(generator, DRVG):
+                if isinstance(generator, Geometric):
+                    points = [i for i in range(1, classes + 1)]
+                    p = [generator.pdf(i) for i in range(1, classes)]
+                elif isinstance(generator, Discrete):
+                    classes = len(generator.p)
+                    points = [i for i in range(classes + 1)]
+                    p = [generator.pdf(i) for i in range(classes)]
+
+            for i in range(len(p) - 1, -1, -1):
+                if p[i] * n < 5:
+                    p.pop(i)
+                    points.pop(i + 1)
 
             for _ in range(simulations):
-                data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = True, plot = False, savepath = False)
-                
+                data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = False, plot = False, savepath = False)
+                if isinstance(data, dict):
+                    data = data['observed']
+
+                observed_frequencies = [len([x for x in data if x >= points[i] and x < points[i + 1]]) for i in range(len(points) - 1)]
+                expected_frequencies = [p[i] * n for i in range(len(p))]
+
                 T = 0
-                cumulative_probability = 0
-                epsilon = 1e-6
                 for i in range(len(p)):
-                    if isinstance(generator, RNG | CRVG):
-                        observed = len([x for x in data if x >= cumulative_probability and x < cumulative_probability + p[i]])
-                    else:
-                        observed = len([x for x in data if math.fabs(x - i / len(p)) < epsilon])
-                    cumulative_probability += p[i]
-                    expected = p[i] * n
-                    T += ((observed - expected) ** 2) / expected
+                    T += ((observed_frequencies[i] - expected_frequencies[i]) ** 2) / expected_frequencies[i]
 
                 Ts.append(T)
 
-            # Calculate mean and standard deviation
             mean_T = sum(Ts) / len(Ts)
             std_T = math.sqrt(sum((x - mean_T) ** 2 for x in Ts) / len(Ts))
             
@@ -51,14 +82,12 @@ class Evaluator:
                 'std': std_T
             }
 
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(Ts, bins = 50, alpha=0.7)
             plt.title(f'Chi-square - {generator.name}')
             plt.xlabel('T')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_T, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_T:.3f}')
             plt.axvline(mean_T - std_T, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_T - std_T:.3f}')
             plt.axvline(mean_T + std_T, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_T + std_T:.3f}')
@@ -70,7 +99,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -97,16 +125,17 @@ class Evaluator:
             D = []
 
             for _ in range(simulations):
-                data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = True, sort = True)
+                data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = False, sort = True)
+                if isinstance(data, dict):
+                    data = data['observed']
 
-                F_n = [i / n for i in range(n)]
-                F_n_data = [sum(1 for x in data if x < i / n) / n for i in range(n)]
+                Fn_theoretical = [generator.cdf(data[i]) for i in range(n)]
+                Fn_observed = [len([x for x in data if x <= data[i]]) / n for i in range(n)]
 
-                D.append(max(abs(F_n_data[i] - F_n[i]) for i in range(n)))
+                D.append(max([abs(Fn_observed[i] - Fn_theoretical[i]) for i in range(n)]))
 
             Z = [(math.sqrt(n) + 0.12 + 0.11 / math.sqrt(n)) * D[i] for i in range(len(D))]
 
-            # Calculate mean and standard deviation
             mean_Z = sum(Z) / len(Z)
             std_Z = math.sqrt(sum((x - mean_Z) ** 2 for x in Z) / len(Z))
             
@@ -116,14 +145,12 @@ class Evaluator:
                 'std': std_Z
             }
 
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(Z, bins = 50, alpha=0.7)
             plt.title(f'Kolmogorov-Smirnov - {generator.name}')
             plt.xlabel('Z')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_Z, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_Z:.3f}')
             plt.axvline(mean_Z - std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_Z - std_Z:.3f}')
             plt.axvline(mean_Z + std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_Z + std_Z:.3f}')
@@ -135,7 +162,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -162,6 +188,9 @@ class Evaluator:
             number_of_runs = []
             for _ in range(simulations):
                 data = generator.simulate(seed = random.randint(1, 10000), n = n)
+                if isinstance(data, dict):
+                    data = data['observed']
+
                 median = np.median(data)
 
                 # n1 = len([x for x in data if x > median])
@@ -183,7 +212,6 @@ class Evaluator:
                 # mean = 2 * (n1 * n2) / (n1 + n2) + 1
                 # variance = 2 * (n1 * n2) * (2 * n1 * n2 - n1 - n2) / ((n1 + n2) ** 2 * (n1 + n2 - 1))
 
-            # Calculate mean and standard deviation
             mean_runs = sum(number_of_runs) / len(number_of_runs)
             std_runs = math.sqrt(sum((x - mean_runs) ** 2 for x in number_of_runs) / len(number_of_runs))
             
@@ -193,14 +221,12 @@ class Evaluator:
                 'std': std_runs
             }
 
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(number_of_runs, bins = 50, alpha=0.7)
             plt.title(f'Above and below - {generator.name}')
             plt.xlabel('Number of runs')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_runs, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_runs:.3f}')
             plt.axvline(mean_runs - std_runs, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_runs - std_runs:.3f}')
             plt.axvline(mean_runs + std_runs, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_runs + std_runs:.3f}')
@@ -212,7 +238,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -239,6 +264,8 @@ class Evaluator:
             Z = []
             for _ in range(simulations):
                 data = generator.simulate(seed = random.randint(1, 10000), n = n)
+                if isinstance(data, dict):
+                    data = data['observed']
 
                 runs = []
                 count = 1
@@ -275,11 +302,9 @@ class Evaluator:
                 n = len(data)
                 R = np.array(R)
                 
-                # Calculate Z statistic according to the formula
                 diff = R - n * B
                 Z.append((1 / (n - 6)) * diff.T @ A @ diff)
             
-            # Calculate mean and standard deviation
             mean_Z = sum(Z) / len(Z)
             std_Z = math.sqrt(sum((x - mean_Z) ** 2 for x in Z) / len(Z))
             
@@ -289,14 +314,12 @@ class Evaluator:
                 'std': std_Z
             }
             
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(Z, bins = 50, alpha=0.7)
             plt.title(f'Up and down Knuth - {generator.name}')
             plt.xlabel('Z')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_Z, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_Z:.3f}')
             plt.axvline(mean_Z - std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_Z - std_Z:.3f}')
             plt.axvline(mean_Z + std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_Z + std_Z:.3f}')
@@ -308,7 +331,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -335,6 +357,8 @@ class Evaluator:
             Z = []
             for _ in range(simulations):
                 data = generator.simulate(seed = random.randint(1, 10000), n = n)
+                if isinstance(data, dict):
+                    data = data['observed']
 
                 comparisons = []
                 for i in range(1, len(data)):
@@ -358,7 +382,6 @@ class Evaluator:
 
                 Z.append((X - (2 * n - 1) / 3) / math.sqrt((16 * n - 29) / 90))
 
-            # Calculate mean and standard deviation
             mean_Z = sum(Z) / len(Z)
             std_Z = math.sqrt(sum((x - mean_Z) ** 2 for x in Z) / len(Z))
             
@@ -368,14 +391,12 @@ class Evaluator:
                 'std': std_Z
             }
 
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(Z, bins = 50, alpha=0.7)
             plt.title(f'Up and down - {generator.name}')
             plt.xlabel('Z')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_Z, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_Z:.3f}')
             plt.axvline(mean_Z - std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_Z - std_Z:.3f}')
             plt.axvline(mean_Z + std_Z, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_Z + std_Z:.3f}')
@@ -387,7 +408,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -414,7 +434,9 @@ class Evaluator:
             c = []
             for _ in range(simulations):
                 data = generator.simulate(seed = random.randint(1, 10000), n = n, normalize = True)
-            
+                if isinstance(data, dict):
+                    data = data['observed']
+
                 n = len(data)
                 sum_of_products = 0
 
@@ -423,7 +445,6 @@ class Evaluator:
 
                 c.append(1 / (n - gap) * sum_of_products)
 
-            # Calculate mean and standard deviation
             mean_c = sum(c) / len(c)
             std_c = math.sqrt(sum((x - mean_c) ** 2 for x in c) / len(c))
             
@@ -433,14 +454,12 @@ class Evaluator:
                 'std': std_c
             }
 
-            # Create individual histogram for each generator
             plt.figure(figsize=(10, 6))
             plt.hist(c, bins = 50, alpha=0.7)
             plt.title(f'Estimated correlation - {generator.name}')
             plt.xlabel('c')
             plt.ylabel('Frequency')
             
-            # Add vertical lines for mean and standard deviation
             plt.axvline(mean_c, color='red', linestyle='--', linewidth=2, label=f'Mean = {mean_c:.3f}')
             plt.axvline(mean_c - std_c, color='orange', linestyle='--', linewidth=1, label=f'μ - σ = {mean_c - std_c:.3f}')
             plt.axvline(mean_c + std_c, color='orange', linestyle='--', linewidth=1, label=f'μ + σ = {mean_c + std_c:.3f}')
@@ -452,7 +471,6 @@ class Evaluator:
                 plt.savefig(os.path.join('plots', f'{savepath}_{generator.name}.png'))
             plt.show()
 
-        # Create comparison bar plot if multiple generators
         if len(generators) > 1:
             plt.figure(figsize=(10, 6))
             generator_names = [gen.name for gen in generators]
@@ -471,6 +489,20 @@ class Evaluator:
             plt.show()
 
         return results
+    
+    def run_all_tests(self, generators: list[RNG | CRVG | DRVG], n: int = 10000, simulations: int = 100, savepath = None, classes: int = 10) -> dict:
+        self.run_GOF_tests(generators = generators, n = n, simulations = simulations, savepath = savepath, classes = classes)
+        self.run_runs_tests(generators = generators, n = n, simulations = simulations, savepath = savepath)
+        self.estimated_correlation(generators = generators, n = n, simulations = simulations, gap = 1, savepath = savepath)
+
+    def run_GOF_tests(self, generators: list[RNG | CRVG | DRVG], n: int = 10000, simulations: int = 100, savepath = None, classes: int = 10) -> dict:
+        self.chi_square(generators = generators, n = n, simulations = simulations, savepath = savepath, classes = classes)
+        self.kolmogorov_smirnov(generators = generators, n = n, simulations = simulations, savepath = savepath)
+
+    def run_runs_tests(self, generators: list[RNG | CRVG | DRVG], n: int = 10000, simulations: int = 100, savepath = None) -> dict:
+        self.above_below(generators = generators, n = n, simulations = simulations, savepath = savepath)
+        self.up_down_knuth(generators = generators, n = n, simulations = simulations, savepath = savepath)
+        self.up_and_down(generators = generators, n = n, simulations = simulations, savepath = savepath)
 
     def analyze_time(self, generators: list[RNG | CRVG | DRVG], n: int, classes: list[int] = None, simulations: int = 1000, savepath = None) -> dict:
         if classes is None:
@@ -516,7 +548,6 @@ class Evaluator:
             for idx, generator in enumerate(generators):
                 generator_key = f'Generator_{idx}'
                 
-                # For each class value
                 for class_val in classes:
                     p = [0] + sorted([random.uniform(0, 1) for i in range(class_val - 1)]) + [1]
                     p = [p[i + 1] - p[i] for i in range(class_val)]
@@ -529,26 +560,22 @@ class Evaluator:
                         end_time = time.time()
                         times_for_class.append(end_time - start_time)
                     
-                    # Calculate mean and std for this n value
                     mean_time = sum(times_for_class) / len(times_for_class)
                     std_time = math.sqrt(sum((x - mean_time) ** 2 for x in times_for_class) / len(times_for_class))
                     
                     data[generator_key]['mean_times'].append(mean_time)
                     data[generator_key]['std_times'].append(std_time)
             
-            # Create line plot with shaded error regions
             plt.figure(figsize=(12, 8))
-            colors = plt.cm.tab10(np.linspace(0, 1, len(generators)))  # Different colors for each generator
+            colors = plt.cm.tab10(np.linspace(0, 1, len(generators)))
             
             for idx, generator in enumerate(generators):
                 generator_key = f'Generator_{idx}'
                 means = data[generator_key]['mean_times']
                 stds = data[generator_key]['std_times']
                 
-                # Plot line with error bars
                 plt.plot(classes, means, color=colors[idx], label=generator.name, linewidth=2, marker='o')
                 
-                # Add shaded error region (mean ± std)
                 upper_bound = [means[i] + stds[i] for i in range(len(means))]
                 lower_bound = [means[i] - stds[i] for i in range(len(means))]
                 plt.fill_between(classes, lower_bound, upper_bound, color=colors[idx], alpha=0.1)
@@ -583,7 +610,6 @@ class Evaluator:
             observed_means.append(observed_mean)
             observed_variances.append(observed_variance)
 
-        # Calculate theoretical values
         if generator.k > 1:
             theoretical_mean = generator.beta * generator.k / (generator.k - 1)
         else:
@@ -596,10 +622,8 @@ class Evaluator:
             theoretical_variance = float('inf')
             print('k must be greater than 2 for finite variance')
 
-        # Create subplot figure
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
         
-        # Plot observed means
         ax1.hist(observed_means, bins=50, alpha=0.7, color='skyblue', edgecolor='black')
         if theoretical_mean != float('inf'):
             ax1.axvline(theoretical_mean, color='red', linestyle=':', linewidth=2, 
@@ -610,7 +634,6 @@ class Evaluator:
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         
-        # Plot observed variances
         ax2.hist(observed_variances, bins=400, alpha=0.7, color='lightcoral', edgecolor='black')
         if theoretical_variance != float('inf'):
             ax2.axvline(theoretical_variance, color='red', linestyle=':', linewidth=2, 

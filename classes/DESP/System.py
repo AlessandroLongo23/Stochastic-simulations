@@ -12,7 +12,7 @@ class System:
         self.offered_loads = []
         self.blocked_customers = []
 
-    def initialize(self):
+    def initialize(self, U1 = None, U2 = None, U3 = None):
         self.service_units = [
             ServiceUnit(
                 name=f'ServiceUnit_{i}', 
@@ -24,8 +24,12 @@ class System:
         ]
         
         self.interarrival_times = []
-        self.interarrival_times, _, _ = self.parameters['interarrival_time_distribution'].simulate(self.parameters['n_customers'])
+        self.interarrival_times = self.parameters['interarrival_time_distribution'].simulate(n = self.parameters['n_customers'], U1 = U1, U2 = U2)['observed']
         self.arrival_times = [sum(self.interarrival_times[:i + 1]) for i in range(len(self.interarrival_times))]
+        if U3 is None:
+            self.service_times = [None for _ in range(self.parameters['n_customers'])]
+        else:
+            self.service_times = self.parameters['service_time_distribution'].simulate(n = self.parameters['n_customers'], U2 = U3)['observed']
 
         self.customers = [
             Customer(
@@ -46,33 +50,36 @@ class System:
     def simulate(self, verbose = False):
         for _ in range(self.parameters['n_runs']):
             self.initialize()
-
-            for customer in self.customers:
-                self.time = customer.arrival_time
-                blocked = self.assign_customer_to_free_service_unit(customer)
-                if blocked:
-                    self.num_blocked += 1
-                else:
-                    self.statistics['service_times'].append(customer.service_time)
-
-            self.blocked_customers.append(self.num_blocked)
-
-            total_arrival_time = sum(self.interarrival_times)
-            total_service_time = sum(self.statistics['service_times'])
-            offered_load = total_service_time / total_arrival_time
-            self.offered_loads.append(offered_load)
+            self.run()
 
         if verbose:
             self.print_statistics()
             self.ordinary_estimator()
             self.control_estimator()
 
-    def assign_customer_to_free_service_unit(self, customer: Customer):
+    def run(self):
+        for customer in self.customers:
+            self.time = customer.arrival_time
+            blocked = self.assign_customer_to_free_service_unit(customer, service_time = self.service_times.pop(0))
+            if blocked:
+                self.num_blocked += 1
+            else:
+                self.statistics['service_times'].append(customer.service_time)
+
+        self.blocked_customers.append(self.num_blocked)
+
+        total_arrival_time = sum(self.interarrival_times)
+        total_service_time = sum(self.statistics['service_times'])
+        offered_load = total_service_time / total_arrival_time
+        self.offered_loads.append(offered_load)
+
+
+    def assign_customer_to_free_service_unit(self, customer: Customer, service_time: float = None):
         for service_unit in self.service_units:
             service_unit.check_if_free(self.time)
 
             if service_unit.free:
-                service_unit.serve_customer(customer)
+                service_unit.serve_customer(customer, service_time)
                 return False
         return True
 
@@ -91,12 +98,9 @@ Interarrival time:
     
     def ordinary_estimator(self):
         n_runs = self.parameters['n_runs']
-        # emp_mean = sum(self.blocked_customers) / n_runs
         fraction_blocked = [self.blocked_customers[i] / self.parameters['n_customers'] for i in range(self.parameters['n_runs'])]
         emp_mean = sum(fraction_blocked) / n_runs
-        # emp_var = (sum(x ** 2 for x in self.blocked_customers) - n_runs * emp_mean ** 2) / (n_runs - 1)
         emp_var = np.var(fraction_blocked)
-        # emp_std = np.std(self.blocked_customers)
         emp_std = np.std(fraction_blocked)
 
         t = 2.262 # 95% confidence level, n_runs = 10

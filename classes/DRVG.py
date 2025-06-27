@@ -26,7 +26,7 @@ class Bernoulli(DRVG):
                 plt.savefig(savepath)
             plt.show()
 
-        return data
+        return {'observed': data}
 
 class Binomial(DRVG):
     def __init__(self, n, p):
@@ -49,43 +49,76 @@ class Binomial(DRVG):
                 plt.savefig(savepath)
             plt.show()
 
+        return {'observed': data}
+
 class Geometric(DRVG):
     def __init__(self, p):
-        self.p = [(1 - p) ** k * p for k in range(100)]
+        self.p_param = p
+        self.name = f'Geometric (p={p})'
+
+    def pdf(self, x):
+        if not isinstance(x, int | np.int64 | np.int32):
+            raise ValueError('x must be an integer')
+        if x <= 0:
+            return 0
+        return (1 - self.p_param) ** (x - 1) * self.p_param
+
+    def cdf(self, x):
+        if not isinstance(x, int | np.int64 | np.int32):
+            raise ValueError('x must be an integer')
+        return 1 - (1 - self.p_param) ** x
 
     def sample(self):
         U = np.random.uniform()
-        return math.floor(np.log(U) / np.log(1 - self.p[0])) + 1
+        return math.floor(np.log(U) / np.log(1 - self.p_param)) + 1
     
-    def simulate(self, n, plot = True, savepath = False, builtin = True):
+    def simulate(self, n: int, plot: bool = True, savepath: str = False, builtin: bool = True, seed: int = None, normalize: bool = False, sort: bool = False):
         if builtin:
-            data = np.random.geometric(self.p, n)
+            data = np.random.geometric(self.p_param, n)
         else:
             data = [self.sample() for _ in range(n)]
+
+        if sort:
+            data.sort()
 
         if plot:
             max_value = max(data)
             plt.hist(data, bins=max_value + 1, range=(0, max_value))
             plt.xlabel('Number of trials')
             plt.ylabel('Frequency')
-            plt.title(f'Geometric Distribution (p={self.p[0]})')
+            plt.title(f'Geometric Distribution (p={self.p_param})')
             if savepath:
                 plt.savefig(savepath)
             plt.show()
 
-        return data
+        return {'observed': data}
 
 class Discrete(DRVG):
     def __init__(self, p):
         self.setProbabilities(p)
+        self.name = 'Discrete'
         
     def setProbabilities(self, p):
         self.p = p
         if sum(p) != 1:
-            # raise ValueError("The sum of probabilities must be 1")
             self.p = [x / sum(p) for x in p]
 
-    def simulate(self, n: int, plot: bool = True, savepath: str = False, seed: int = None, normalize: bool = False, sort: bool = False):
+    def pdf(self, x):
+        if not isinstance(x, int | np.int64 | np.int32):
+            raise ValueError('x must be an integer')
+        return self.p[x]
+    
+    def cdf(self, x):
+        if not isinstance(x, int | np.int64 | np.int32):
+            raise ValueError('x must be an integer')
+        if x < 0:
+            return 0
+        elif x >= len(self.p):
+            return 1
+        else:
+            return sum(self.p[:x + 1])
+
+    def simulate(self, n: int, plot: bool = False, savepath: str = False, seed: int = None, normalize: bool = False, sort: bool = False):
         if seed:
             np.random.seed(seed)
 
@@ -106,7 +139,7 @@ class Discrete(DRVG):
                 plt.savefig(f'{savepath}.png')
             plt.show()
 
-        return data
+        return {'observed': data}
 
         
 class DiscreteBuiltin(Discrete):
@@ -130,7 +163,7 @@ class DiscreteBuiltin(Discrete):
             if savepath:
                 plt.savefig(f'{savepath}.png')
             plt.show()
-        return data
+        return {'observed': data}
 
 class DiscreteDirect(Discrete):
     def __init__(self, p, method):
@@ -261,4 +294,4 @@ class CustomDRVG(DRVG):
                 plt.savefig(f'{savepath}.png')
             plt.show()
 
-        return data
+        return {'observed': data}

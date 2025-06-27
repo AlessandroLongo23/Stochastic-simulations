@@ -1,25 +1,15 @@
-"""
-Initialization strategies for Simulated Annealing optimization problems.
-Provides various methods to generate initial solutions.
-"""
-
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Optional
 
 
 class InitializationStrategy(ABC):
-    """Abstract base class for initialization strategies"""
-    
     @abstractmethod
     def initialize(self, cost_matrix: np.ndarray) -> np.ndarray:
-        """Initialize a solution given the cost matrix"""
         pass
 
 
 class RandomInitialization(InitializationStrategy):
-    """Random permutation initialization"""
-    
     def __init__(self, seed: Optional[int] = None):
         self.seed = seed
     
@@ -30,8 +20,6 @@ class RandomInitialization(InitializationStrategy):
 
 
 class NearestNeighborInitialization(InitializationStrategy):
-    """Nearest neighbor heuristic initialization"""
-    
     def __init__(self, start_city: int = 0):
         self.start_city = start_city
     
@@ -52,21 +40,16 @@ class NearestNeighborInitialization(InitializationStrategy):
 
 
 class GreedyInitialization(InitializationStrategy):
-    """Greedy edge selection initialization"""
-    
     def initialize(self, cost_matrix: np.ndarray) -> np.ndarray:
         n_cities = cost_matrix.shape[0]
         
-        # Create list of all edges with their costs
         edges = []
         for i in range(n_cities):
             for j in range(i + 1, n_cities):
                 edges.append((cost_matrix[i][j], i, j))
         
-        # Sort edges by cost
         edges.sort()
         
-        # Build tour using minimum spanning tree approach
         degree = [0] * n_cities
         adjacency = [[] for _ in range(n_cities)]
         
@@ -80,7 +63,6 @@ class GreedyInitialization(InitializationStrategy):
                 if sum(degree) == 2 * n_cities:
                     break
         
-        # Convert adjacency list to tour
         start = next((i for i in range(n_cities) if degree[i] > 0), 0)
         tour = [start]
         current = start
@@ -94,7 +76,6 @@ class GreedyInitialization(InitializationStrategy):
                     break
             
             if next_city is None:
-                # Fill with remaining cities in order
                 remaining = [i for i in range(n_cities) if i not in visited]
                 tour.extend(remaining)
                 break
@@ -107,15 +88,12 @@ class GreedyInitialization(InitializationStrategy):
 
 
 class FarthestInsertionInitialization(InitializationStrategy):
-    """Farthest insertion heuristic for initialization"""
-    
     def initialize(self, cost_matrix: np.ndarray) -> np.ndarray:
         n_cities = cost_matrix.shape[0]
         
         if n_cities <= 2:
             return np.arange(n_cities)
         
-        # Start with the two farthest cities
         max_distance = 0
         start_pair = (0, 1)
         
@@ -129,7 +107,6 @@ class FarthestInsertionInitialization(InitializationStrategy):
         remaining = set(range(n_cities)) - set(tour)
         
         while remaining:
-            # Find the city farthest from the current tour
             farthest_city = None
             max_min_distance = -1
             
@@ -139,7 +116,6 @@ class FarthestInsertionInitialization(InitializationStrategy):
                     max_min_distance = min_distance
                     farthest_city = city
             
-            # Find the best insertion position
             best_position = 0
             best_increase = float('inf')
             
@@ -153,7 +129,6 @@ class FarthestInsertionInitialization(InitializationStrategy):
                     best_increase = increase
                     best_position = i + 1
             
-            # Insert the city
             tour.insert(best_position, farthest_city)
             remaining.remove(farthest_city)
         

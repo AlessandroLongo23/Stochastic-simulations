@@ -1,8 +1,9 @@
 import sys
 import os
 import pandas as pd
+import math
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../..'))
 
 import numpy as np
 from classes.TSP.TravellingSalesman import TravellingSalesman
@@ -91,12 +92,36 @@ def exercise_3():
         save_path='plots/exercise_3_dashboard.png'
     )
 
+def exercise_4():
+    n_cities = 20
+    n_iterations = 10000
+    coordinates = np.array([[50 * math.cos(i * 2 * math.pi / n_cities), 50 * math.sin(i * 2 * math.pi / n_cities)] for i in range(n_cities)])
+    tsp = TravellingSalesman(coordinates=coordinates)
+
+    configuration = ModularSimulatedAnnealing(
+        initialization_strategy=RandomInitialization(seed=42),
+        temperature_schedule=SqrtCooling(initial_temp=10),
+        proposal_generator=TwoSwapProposal(),
+        name='Exercise 4'
+    )
+
+    configuration.run(tsp.cost_matrix, n_iterations=n_iterations, coordinates=tsp.coordinates)
+
+    plotter = ComposablePlotter(figsize=(16, 12))
+    plotter.create_dashboard(
+        sa_instance=configuration,
+        coordinates=tsp.coordinates,
+        save_path='plots/exercise_4_dashboard.png'
+    )
+
+
 def main():
     os.makedirs('plots', exist_ok=True)
     
     # exercise_1()
-    exercise_2()
+    # exercise_2()
     # exercise_3()
+    exercise_4()
     
 
 if __name__ == "__main__":

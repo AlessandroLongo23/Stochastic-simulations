@@ -1,10 +1,8 @@
 import sys
 import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 import numpy as np
-import math
-import time
 
 from classes.Estimator import Crude, Antithetic, Control, Stratified, ImportanceSampling
 from classes.CRVG import Gaussian, CustomDistribution, Exponential
@@ -12,7 +10,6 @@ from classes.Function import Function
 from classes.Plotter import Plotter
 
 def main():
-    # # Regular Monte Carlo Integration Examples
     target_function = Function(lambda x: np.exp(x), 'h(x) = e^x')
     a, b = 0, 1
 
@@ -30,7 +27,7 @@ def main():
     estimator = Antithetic()
     estimator.estimateIntegral(
         target_fn=target_function, 
-        a=a, b=b, 
+        a=a, b=b,
         n=10000
     )
 
@@ -44,7 +41,7 @@ def main():
     )
 
     # EX 4
-    print('EX 4')
+    print('EX 4')   
     estimator = Stratified()
     estimator.estimateIntegral(
         target_fn=target_function, 
@@ -54,7 +51,7 @@ def main():
     )
 
     # EX 7
-    print('EX 7')
+    print('EX 7')   
     estimator = Crude()
     estimator.estimateProbability(
         target_fn=Gaussian(mu=0, sigma=1), 
@@ -90,7 +87,6 @@ def main():
     plotter = Plotter()
     plotter.plot_line(x = lambdas, y = stds, x_label = 'Lambda', y_label = 'Standard deviation', title = 'Standard deviation over lambda', savepath = 'standard_deviation_over_lambda.png')
 
-    # find lambda that minimizes std
     min_std = min(stds)
     min_lambda = lambdas[stds.index(min_std)]
     print("Estimate of integral: ", means[stds.index(min_std)])
@@ -99,3 +95,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    

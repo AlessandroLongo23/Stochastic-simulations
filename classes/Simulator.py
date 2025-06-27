@@ -13,12 +13,12 @@ class Simulator:
 
         data = {}
         for generator in rvgs:
-            [observed, x_range, label] = generator.simulate(n)
+            data = generator.simulate(n)
             data[generator.id] = {
                 'generator': generator,
-                'observed': observed,
-                'x_range': x_range,
-                'label': label,
+                'observed': data['observed'],
+                'x_range': data['x_range'],
+                'label': data['label'],
             }
 
         return data

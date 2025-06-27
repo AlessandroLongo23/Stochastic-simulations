@@ -1,5 +1,6 @@
 import numpy as np
 from classes.Function import Function
+import time
 
 class MonteCarloEstimator():
     def __init__(self):
@@ -59,8 +60,12 @@ class Crude(MonteCarloEstimator):
         pass
 
     def estimateExpected(self, target_fn: Function, a = 0, b = 1, n = 10) -> np.ndarray:
+        time_start = time.time()
         U = np.random.uniform(a, b, n)
-        return [target_fn.evaluate(u) for u in U]
+        values = [target_fn.evaluate(u) for u in U]
+        time_end = time.time()
+        print(f"Time taken: {time_end - time_start}")
+        return values
 
 class Antithetic(MonteCarloEstimator):
     def __init__(self):
@@ -68,8 +73,12 @@ class Antithetic(MonteCarloEstimator):
         pass
 
     def estimateExpected(self, target_fn: Function, a = 0, b = 1, n = 10, **args) -> np.ndarray:
+        time_start = time.time()
         U = np.random.uniform(a, b, n)
-        return [(target_fn.evaluate(u) + target_fn.evaluate(1 - u)) / 2 for u in U]
+        values = [(target_fn.evaluate(u) + target_fn.evaluate(1 - u)) / 2 for u in U]
+        time_end = time.time()
+        print(f"Time taken: {time_end - time_start}")
+        return values
 
 class Control(MonteCarloEstimator):
     def __init__(self):
@@ -77,6 +86,7 @@ class Control(MonteCarloEstimator):
         pass
 
     def estimateExpected(self, target_fn: Function, a = 0, b = 1, n = 10, **args) -> np.ndarray:
+        time_start = time.time()
         U = np.random.uniform(a, b, n * 2).reshape(n, 2)
         U1, U2 = U[:, 0], U[:, 1]
 
@@ -85,7 +95,10 @@ class Control(MonteCarloEstimator):
         c = -cov * 12
 
         f_U2 = [target_fn.evaluate(u) for u in U2]
-        return [f_U2[i] + c * (U2[i] - 0.5) for i in range(n)]
+        values = [f_U2[i] + c * (U2[i] - 0.5) for i in range(n)]
+        time_end = time.time()
+        print(f"Time taken: {time_end - time_start}")
+        return values
 
 class Stratified(MonteCarloEstimator):
     def __init__(self):
@@ -94,11 +107,14 @@ class Stratified(MonteCarloEstimator):
 
     def estimateExpected(self, target_fn: Function, a = 0, b = 1, n = 10, **args) -> np.ndarray:
         strata = args.get('strata', 10)
+        time_start = time.time()
         U = np.random.uniform(a, b, n * strata).reshape(n, strata)
         f_values = np.zeros(n)
         for i in range(strata):
             f_values += [target_fn.evaluate((i + U[j, i]) / strata) for j in range(n)]
         f_values /= strata
+        time_end = time.time()
+        print(f"Time taken: {time_end - time_start}")
 
         return f_values
 

@@ -22,10 +22,10 @@ class ServiceUnit:
             self.served_customer = None
             self.service_time = None
 
-    def serve_customer(self, customer: Customer):
+    def serve_customer(self, customer: Customer, service_time: float = None):
         self.free = False
         self.served_customer = customer
-        self.service_time = self.parameters['service_time'].sample()
+        self.service_time = service_time if service_time is not None else self.parameters['service_time'].sample()
 
         customer.service_time = self.service_time
 

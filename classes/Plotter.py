@@ -35,42 +35,42 @@ class Plotter:
         plt.show()
 
     def plot_histogram(self, data, range_ = None, classes = 10, theoretical_density = None, x_label = 'Value', y_label = 'Frequency', title = 'Histogram of the data', savepath = None):
-        # Handle different input formats and determine if data is 1D or 2D
         if isinstance(data, (list, tuple)) and len(data) == 2 and all(isinstance(d, (list, tuple, np.ndarray)) for d in data):
-            # Case: data is ([x_values], [y_values])
             x_data, y_data = data
             is_2d = True
         else:
-            # Convert to numpy array for shape checking
             data_array = np.array(data)
             
             if data_array.ndim == 1:
-                # 1D data
                 is_2d = False
             elif data_array.ndim == 2 and data_array.shape[1] == 2:
-                # 2D data with shape (n, 2)
                 x_data, y_data = data_array[:, 0], data_array[:, 1]
                 is_2d = True
             else:
                 raise ValueError(f"Unsupported data shape: {data_array.shape}. Expected 1D array, 2D array with 2 columns, or tuple/list of two 1D arrays.")
         
         if is_2d:
-            # 2D histogram
-            # If classes is a single number, use it for both dimensions
             if isinstance(classes, (int, float)):
-                bins = [classes, classes]
+                bins = [classes + 1, classes + 1]
+                range_ = [[-0.5, classes + 0.5], [-0.5, classes + 0.5]]
             else:
                 bins = classes
+                range_ = None
+
+            H, xedges, yedges = np.histogram2d(x_data, y_data, bins=bins, range=range_)
             
-            plt.hist2d(x_data, y_data, bins=bins)
-            plt.colorbar(label='Frequency')
-            plt.xlabel(x_label)
-            plt.ylabel(y_label)
-            # Note: theoretical_density is not typically used for 2D histograms
+            fig, ax = plt.subplots()
+            im = ax.imshow(H.T, origin='lower', cmap='viridis', 
+                           extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                           interpolation='nearest')
+            
+            fig.colorbar(im, ax=ax, label='Frequency')
+            ax.set_xlabel(x_label)
+            ax.set_ylabel(y_label)
+
             if theoretical_density:
                 print("Warning: theoretical_density parameter is ignored for 2D histograms")
         else:
-            # 1D histogram (existing behavior)
             if range_ is not None: 
                 plt.hist(data, range = range_, bins=classes, edgecolor='black')
             else:
@@ -89,9 +89,7 @@ class Plotter:
     def plot_density(self, data, x_label='Value', y_label='Density', title='Density of the data', savepath=None, x_range=None):
         colors = ['b-', 'g-', 'r-', 'c-', 'm-', 'y-', 'k-']
         
-        # Handle numpy array input - convert to simple format
         if isinstance(data, np.ndarray):
-            # Convert numpy array to list for processing
             data_list = data.tolist() if hasattr(data, 'tolist') else list(data)
             
             if x_range:
@@ -100,12 +98,10 @@ class Plotter:
                 x_min, x_max = min(data_list), max(data_list)
                 combined_x_range = np.linspace(x_min, x_max, 100)
             
-            # Create density plot for numpy array
             density = stats.gaussian_kde(data_list)
             plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
             plt.xlim([combined_x_range[0], combined_x_range[-1]])
             
-        # Handle dictionary input (original format)
         elif isinstance(data, dict):
             if x_range:
                 combined_x_range = np.linspace(x_range[0], x_range[1], 100)
@@ -149,7 +145,6 @@ class Plotter:
                 )
                 plt.xlim([combined_x_range[0], combined_x_range[-1]])
         
-        # Handle list input
         elif isinstance(data, (list, tuple)):
             if x_range:
                 combined_x_range = np.linspace(x_range[0], x_range[1], 100)
@@ -157,7 +152,6 @@ class Plotter:
                 x_min, x_max = min(data), max(data)
                 combined_x_range = np.linspace(x_min, x_max, 100)
             
-            # Create density plot for list/tuple
             density = stats.gaussian_kde(data)
             plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
             plt.xlim([combined_x_range[0], combined_x_range[-1]])

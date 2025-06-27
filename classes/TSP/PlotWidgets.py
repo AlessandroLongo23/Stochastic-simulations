@@ -1,8 +1,3 @@
-"""
-Modular plotting system with widget-based approach for composable visualizations.
-Each widget represents a specific metric or visualization that can be combined.
-"""
-
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -13,21 +8,16 @@ from matplotlib.gridspec import GridSpec
 
 
 class PlotWidget(ABC):
-    """Abstract base class for plot widgets"""
-    
     def __init__(self, title: str = "", size: Tuple[int, int] = (1, 1)):
         self.title = title
-        self.size = size  # (rows, cols) this widget should occupy
+        self.size = size
     
     @abstractmethod
     def render(self, ax: plt.Axes, data: Dict[str, Any]) -> None:
-        """Render the widget on the given axes with provided data"""
         pass
 
 
 class CostEvolutionWidget(PlotWidget):
-    """Widget for plotting cost evolution over iterations"""
-    
     def __init__(self, show_current: bool = True, show_best: bool = True, 
                  rolling_window: int = 500, title: str = "Cost Evolution"):
         super().__init__(title, (1, 1))
@@ -43,7 +33,6 @@ class CostEvolutionWidget(PlotWidget):
         
         if self.show_current and cost_history:
             ax.plot(iterations, cost_history, 'b-', alpha=0.3, linewidth=0.5, label='Current Cost')
-            # Add rolling average
             if len(cost_history) > self.rolling_window:
                 rolling_avg = self._rolling_average(cost_history, self.rolling_window)
                 rolling_iter = range(self.rolling_window-1, len(cost_history))
@@ -59,7 +48,6 @@ class CostEvolutionWidget(PlotWidget):
         ax.grid(True, alpha=0.3)
     
     def _rolling_average(self, data: List[float], window_size: int) -> List[float]:
-        """Calculate rolling average"""
         if len(data) < window_size:
             return data
         return [sum(data[i:i+window_size])/window_size 
@@ -67,8 +55,6 @@ class CostEvolutionWidget(PlotWidget):
 
 
 class TemperatureWidget(PlotWidget):
-    """Widget for plotting temperature evolution"""
-    
     def __init__(self, log_scale: bool = True, title: str = "Temperature Evolution"):
         super().__init__(title, (1, 1))
         self.log_scale = log_scale
@@ -90,8 +76,6 @@ class TemperatureWidget(PlotWidget):
 
 
 class AcceptanceRateWidget(PlotWidget):
-    """Widget for plotting acceptance rate over time"""
-    
     def __init__(self, window_size: int = 500, title: str = "Acceptance Rate"):
         super().__init__(title, (1, 1))
         self.window_size = window_size
@@ -111,14 +95,11 @@ class AcceptanceRateWidget(PlotWidget):
             ax.grid(True, alpha=0.3)
     
     def _rolling_average(self, data: List[bool], window_size: int) -> List[float]:
-        """Calculate rolling acceptance rate"""
         return [sum(data[i:i+window_size])/window_size 
                 for i in range(len(data)-window_size+1)]
 
 
 class SolutionPathWidget(PlotWidget):
-    """Widget for plotting the TSP solution path"""
-    
     def __init__(self, show_cities: bool = True, show_labels: bool = False, 
                  title: str = "Solution Path"):
         super().__init__(title, (1, 1))
@@ -131,19 +112,16 @@ class SolutionPathWidget(PlotWidget):
         cost = data.get('cost', 0)
         
         if coordinates is not None and solution is not None:
-            # Plot cities
             if self.show_cities:
                 ax.scatter(coordinates[:, 0], coordinates[:, 1], 
                           c='red', s=50, zorder=3, alpha=0.7)
             
-            # Plot path
             for i in range(len(solution)):
                 start = coordinates[solution[i]]
                 end = coordinates[solution[(i + 1) % len(solution)]]
                 ax.plot([start[0], end[0]], [start[1], end[1]], 
                        'b-', linewidth=1, alpha=0.7)
             
-            # Add city labels if requested
             if self.show_labels:
                 for i, coord in enumerate(coordinates):
                     ax.annotate(str(i), coord, xytext=(5, 5), 
@@ -155,18 +133,14 @@ class SolutionPathWidget(PlotWidget):
 
 
 class StatisticsWidget(PlotWidget):
-    """Widget for displaying algorithm statistics"""
-    
     def __init__(self, title: str = "Algorithm Statistics"):
         super().__init__(title, (1, 1))
     
     def render(self, ax: plt.Axes, data: Dict[str, Any]) -> None:
         stats = data.get('statistics', {})
         
-        # Hide axes for text display
         ax.axis('off')
         
-        # Prepare statistics text
         text_lines = []
         text_lines.append(f"Initial Cost: {stats.get('initial_cost', 'N/A'):.2f}")
         text_lines.append(f"Final Cost: {stats.get('final_best_cost', 'N/A'):.2f}")
@@ -175,7 +149,6 @@ class StatisticsWidget(PlotWidget):
         text_lines.append(f"Convergence Iter: {stats.get('convergence_iteration', 'N/A'):,}")
         text_lines.append(f"Acceptance Rate: {stats.get('overall_acceptance_rate', 'N/A'):.1f}%")
         
-        # Display text
         text = '\n'.join(text_lines)
         ax.text(0.1, 0.9, text, transform=ax.transAxes, fontsize=12,
                 verticalalignment='top', bbox=dict(boxstyle='round', facecolor='lightgray'))
@@ -183,8 +156,6 @@ class StatisticsWidget(PlotWidget):
 
 
 class ComparisonWidget(PlotWidget):
-    """Widget for comparing multiple algorithm runs"""
-    
     def __init__(self, metric: str = 'best_cost_history', title: str = "Algorithm Comparison"):
         super().__init__(title, (1, 1))
         self.metric = metric
@@ -210,8 +181,6 @@ class ComparisonWidget(PlotWidget):
 
 
 class HeatmapWidget(PlotWidget):
-    """Widget for displaying heatmaps (e.g., cost matrix)"""
-    
     def __init__(self, title: str = "Heatmap"):
         super().__init__(title, (1, 1))
     
@@ -225,26 +194,19 @@ class HeatmapWidget(PlotWidget):
 
 
 class ComposablePlotter:
-    """Main plotter class that composes widgets into a final visualization"""
-    
     def __init__(self, figsize: Tuple[int, int] = (15, 10)):
         self.widgets = []
         self.figsize = figsize
         self.layout = None
     
     def add_widget(self, widget: PlotWidget, position: Optional[Tuple[int, int]] = None) -> None:
-        """Add a widget to the plot"""
         self.widgets.append((widget, position))
     
     def set_layout(self, rows: int, cols: int) -> None:
-        """Set the grid layout for widgets"""
         self.layout = (rows, cols)
     
     def create_plot(self, data: Dict[str, Any], save_path: Optional[str] = None, 
                    show: bool = True) -> plt.Figure:
-        """Create the composed plot with all widgets"""
-        
-        # Auto-determine layout if not set
         if self.layout is None:
             n_widgets = len(self.widgets)
             cols = min(3, n_widgets)
@@ -259,7 +221,6 @@ class ComposablePlotter:
                 row, col = position
                 ax = fig.add_subplot(gs[row, col])
             else:
-                # Auto-position
                 row = i // self.layout[1]
                 col = i % self.layout[1]
                 ax = fig.add_subplot(gs[row, col])
@@ -283,12 +244,8 @@ class ComposablePlotter:
     
     def create_dashboard(self, sa_instance, coordinates: Optional[np.ndarray] = None,
                         save_path: Optional[str] = None) -> plt.Figure:
-        """Create a comprehensive dashboard for a single SA run"""
-        
-        # Clear existing widgets
         self.widgets = []
         
-        # Add standard widgets
         self.set_layout(2, 2)
         self.add_widget(CostEvolutionWidget())
         self.add_widget(TemperatureWidget())
@@ -298,7 +255,6 @@ class ComposablePlotter:
         if coordinates is not None:
             self.add_widget(SolutionPathWidget())
         
-        # Prepare data
         data = {
             'cost_history': getattr(sa_instance, 'cost_history', []),
             'best_cost_history': getattr(sa_instance, 'best_cost_history', []),
@@ -314,17 +270,12 @@ class ComposablePlotter:
     
     def create_comparison_plot(self, comparison_results: Dict[str, Any], 
                              save_path: Optional[str] = None) -> plt.Figure:
-        """Create a comparison plot for multiple algorithm runs"""
-        
-        # Clear existing widgets
         self.widgets = []
         
-        # Add comparison widgets
         self.add_widget(ComparisonWidget('best_cost_history', 'Cost Evolution Comparison'))
         self.add_widget(ComparisonWidget('temperature_history', 'Temperature Comparison'))
         self.add_widget(ComparisonWidget('acceptance_history', 'Acceptance Rate Comparison'))
         
-        # Prepare data
         data = {
             'comparison_results': comparison_results
         }

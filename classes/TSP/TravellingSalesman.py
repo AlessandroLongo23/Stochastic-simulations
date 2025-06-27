@@ -3,10 +3,11 @@ from sklearn.manifold import MDS
 import warnings
 
 class TravellingSalesman:
-    def __init__(self, n_stations: int = None, cost_matrix: np.ndarray = None):
+    def __init__(self, n_stations: int = None, cost_matrix: np.ndarray = None, coordinates: list = None):
         if cost_matrix is None:
-            self.n_stations = n_stations
-            self.coordinates = self.generate_coordinates()
+            self.n_stations = n_stations if n_stations is not None else len(coordinates)
+            self.coordinates = coordinates if coordinates is not None else self.generate_coordinates()
+            print(self.coordinates)
             self.cost_matrix = self.generate_cost_matrix()
         else:
             self.n_stations = cost_matrix.shape[0]
@@ -14,7 +15,8 @@ class TravellingSalesman:
             self.coordinates = self.calculate_coordinates()
 
     def generate_coordinates(self):
-        return np.random.rand(self.n_stations, 2)
+        coordinates = np.random.rand(self.n_stations, 2)
+        return coordinates
     
     def generate_cost_matrix(self):
         cost_matrix = np.zeros((self.n_stations, self.n_stations))
@@ -27,22 +29,16 @@ class TravellingSalesman:
         return np.linalg.norm(self.coordinates[i] - self.coordinates[j])
     
     def calculate_coordinates(self):
-        """
-        Calculate 2D coordinates from the cost matrix using Multi-Dimensional Scaling (MDS).
-        This finds coordinates such that the Euclidean distances approximate the cost matrix values.
-        """
         try:
-            # Suppress sklearn convergence warnings for cleaner output
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=UserWarning)
                 
-                # Use MDS to embed the distance matrix into 2D space
                 mds = MDS(
-                    n_components=2,           # 2D coordinates
-                    dissimilarity='precomputed',  # We provide distance matrix directly
-                    random_state=42,          # For reproducible results
-                    max_iter=1000,           # Maximum iterations
-                    eps=1e-6                 # Convergence tolerance
+                    n_components=2,
+                    dissimilarity='precomputed',
+                    random_state=42,
+                    max_iter=1000,
+                    eps=1e-6
                 )
                 
                 coordinates = mds.fit_transform(self.cost_matrix)
@@ -56,10 +52,6 @@ class TravellingSalesman:
             return self.classical_mds(self.cost_matrix)
     
     def classical_mds(self, distance_matrix):
-        """
-        Classical Multi-Dimensional Scaling using eigenvalue decomposition.
-        This is a fallback method if sklearn MDS fails.
-        """
         n = distance_matrix.shape[0]
         
         H = np.eye(n) - np.ones((n, n)) / n

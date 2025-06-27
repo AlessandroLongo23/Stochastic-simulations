@@ -3,6 +3,7 @@ from classes.DRVG import CustomDRVG
 
 import numpy as np
 import math
+from typing import Callable
 
 class MCMC:
     def __init__(self, unnormalized_density: Function, m = 10):
@@ -11,16 +12,19 @@ class MCMC:
         self.chain = []
         self.epsilon = 1e-6
 
-    def run(self, n = 1000, burn_in = 100, method = 'mh_ordinary', domain = 'discrete', verbose = False):
+    def run(self, n = 1000, burn_in = 100, method = 'mh_ordinary', domain = 'discrete', verbose = False, condition: Callable = lambda x: True):
         self.chain = []
         if method == 'gibbs':
             self.gibbs(n, domain)
         else:
-            self.metropolis_hastings(n, method, domain, verbose)
+            self.metropolis_hastings(n, method, domain, verbose, condition)
         self.burn_in(burn_in = burn_in)
 
         return self.chain
     
+    def thin(self, gap = 10):
+        self.chain = self.chain[::gap]
+            
     def gibbs(self, n, domain):
         vars_ = self.unnormalized_density.f.__code__.co_argcount
         if domain == 'discrete':
@@ -49,21 +53,26 @@ class MCMC:
             return [conditional_density.sample(), X[i]]
 
 
-    def metropolis_hastings(self, n, method, domain = 'discrete', verbose = False):
+    def metropolis_hastings(self, n, method, domain = 'discrete', verbose = False, condition = lambda x: True):
         vars_ = self.unnormalized_density.f.__code__.co_argcount
-        if domain == 'discrete':
-            if vars_ == 1:
-                X = np.random.randint(0, self.m + 1)
+        X = None
+        while True:
+            if domain == 'discrete':
+                if vars_ == 1:
+                    X = np.random.randint(0, self.m + 1)
+                else:
+                    X = np.random.randint(0, self.m + 1, size = vars_)
             else:
-                X = np.random.randint(0, self.m + 1, size = vars_)
-        else:
-            if vars_ == 1:
-                X = np.random.uniform(self.epsilon, 1)
-            else:
-                X = np.random.uniform(self.epsilon, 1, size = vars_)
+                if vars_ == 1:
+                    X = np.random.uniform(self.epsilon, 1)
+                else:
+                    X = np.random.uniform(self.epsilon, 1, size = vars_)
+
+            if condition(X):
+                break
 
         for _ in range(n):
-            proposal = self.get_proposal(X, method, domain)
+            proposal = self.get_proposal(X, method, domain, condition)
             accept_reject = self.accept_reject(X, proposal)
             X = self.update_chain(X, proposal, accept_reject)
             self.chain.append(X)
@@ -71,7 +80,7 @@ class MCMC:
             if verbose:
                 print(f"Iteration {_ + 1}/{n}, Acceptance rate: {self.acceptance_count / self.total_proposals:.3f}, Step size: {self.step_sizer.get_step_size():.6f}")
 
-    def get_proposal(self, X: float | list[float], method = 'mh_ordinary', domain = 'discrete'):
+    def get_proposal(self, X: float | list[float], method = 'mh_ordinary', domain = 'discrete', condition: Callable = lambda x: True):
         if domain == 'discrete':
             if isinstance(X, int | float):
                 delta = np.random.randint(-1, 2)
@@ -83,7 +92,15 @@ class MCMC:
                     delta = [0] * len(X)
                     delta[np.random.randint(0, len(X))] = np.random.randint(-1, 2)
 
-                return [min(self.m, max(0, x + d)) for x, d in zip(X, delta)]
+                next_ = [min(self.m, max(0, x + d)) for x, d in zip(X, delta)]
+                while True:
+                    delta = np.random.randint(-1, 2, size = len(X))
+                    next_ = [min(self.m, max(0, x + d)) for x, d in zip(X, delta)]
+                    if condition(next_):
+                        break
+
+
+                return next_
         else:
             if isinstance(X, float):
                 delta = np.random.normal(0, 1)

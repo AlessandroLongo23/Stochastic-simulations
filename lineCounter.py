@@ -4,7 +4,6 @@ from pathlib import Path
 
 
 def count_lines_in_file(file_path):
-    """Count the number of lines in a single file."""
     try:
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
             return sum(1 for line in file)
@@ -14,16 +13,6 @@ def count_lines_in_file(file_path):
 
 
 def count_python_lines(folder_path, include_subdirs=True):
-    """
-    Count total lines of Python code in a folder.
-    
-    Args:
-        folder_path (str): Path to the folder to analyze
-        include_subdirs (bool): Whether to include subdirectories
-    
-    Returns:
-        tuple: (total_lines, file_count, file_details)
-    """
     folder_path = Path(folder_path)
     
     if not folder_path.exists():
@@ -36,10 +25,8 @@ def count_python_lines(folder_path, include_subdirs=True):
     file_count = 0
     file_details = []
     
-    # Define the pattern for searching
     pattern = "**/*.py" if include_subdirs else "*.py"
     
-    # Find all Python files
     for py_file in folder_path.glob(pattern):
         if py_file.is_file():
             lines = count_lines_in_file(py_file)
@@ -76,7 +63,7 @@ def main():
         if args.details and file_details:
             print(f"\n📄 File Details:")
             print(f"{'='*40}")
-            file_details.sort(key=lambda x: x[1], reverse=True)  # Sort by line count
+            file_details.sort(key=lambda x: x[1], reverse=True)
             for file_path, lines in file_details:
                 print(f"{lines:>6,} lines - {file_path}")
         
