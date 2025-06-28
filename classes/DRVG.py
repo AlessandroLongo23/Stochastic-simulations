@@ -15,7 +15,7 @@ class Bernoulli(DRVG):
     def sample(self):
         return np.random.binomial(1, self.p[0])
     
-    def simulate(self, n, plot = True, savepath = False):
+    def simulate(self, n, plot = False, savepath = False):
         data = [self.sample() for _ in range(n)]
         if plot:
             plt.hist(data, bins=2)
@@ -37,7 +37,7 @@ class Binomial(DRVG):
     def sample(self):
         return np.random.binomial(self.n, self.pp)
 
-    def simulate(self, n, plot = True, savepath = False):
+    def simulate(self, n, plot = False, savepath = False):
         data = [self.sample() for _ in range(n)]
 
         if plot:
@@ -56,16 +56,12 @@ class Geometric(DRVG):
         self.p_param = p
         self.name = f'Geometric (p={p})'
 
-    def pdf(self, x):
-        if not isinstance(x, int | np.int64 | np.int32):
-            raise ValueError('x must be an integer')
+    def pdf(self, x: int | np.int64 | np.int32) -> float:
         if x <= 0:
             return 0
         return (1 - self.p_param) ** (x - 1) * self.p_param
 
-    def cdf(self, x):
-        if not isinstance(x, int | np.int64 | np.int32):
-            raise ValueError('x must be an integer')
+    def cdf(self, x: int | np.int64 | np.int32) -> float:
         return 1 - (1 - self.p_param) ** x
 
     def sample(self):
@@ -103,14 +99,10 @@ class Discrete(DRVG):
         if sum(p) != 1:
             self.p = [x / sum(p) for x in p]
 
-    def pdf(self, x):
-        if not isinstance(x, int | np.int64 | np.int32):
-            raise ValueError('x must be an integer')
+    def pdf(self, x: int | np.int64 | np.int32) -> float:
         return self.p[x]
     
-    def cdf(self, x):
-        if not isinstance(x, int | np.int64 | np.int32):
-            raise ValueError('x must be an integer')
+    def cdf(self, x: int | np.int64 | np.int32) -> float:
         if x < 0:
             return 0
         elif x >= len(self.p):
@@ -147,7 +139,7 @@ class DiscreteBuiltin(Discrete):
         super().__init__(p)
         self.name = 'built-in'
 
-    def simulate(self, n, plot = True, savepath = False, seed = None, normalize = False, sort = False):
+    def simulate(self, n, plot = False, savepath = False, seed = None, normalize = False, sort = False):
         if seed:
             np.random.seed(seed)
         data = np.random.choice(len(self.p), p=self.p, size = n)
@@ -173,7 +165,6 @@ class DiscreteDirect(Discrete):
 
     def setProbabilities(self, p):
         super().setProbabilities(p)
-        self.cdf = [sum(self.p[:i+1]) for i in range(len(self.p))]
 
     def sample(self):
         if self.method == 'inefficient':
@@ -193,7 +184,7 @@ class DiscreteDirect(Discrete):
     def sample_linear(self):
         U = np.random.uniform()
         for i in range(len(self.p)):
-            if U < self.cdf[i]:
+            if U < self.cdf(i):
                 return i
         return len(self.p) - 1
         
@@ -202,7 +193,7 @@ class DiscreteDirect(Discrete):
         left, right = 0, len(self.p) - 1
         while left < right:
             mid = (left + right) // 2
-            if U < self.cdf[mid]:
+            if U < self.cdf(mid):
                 right = mid
             else:
                 left = mid + 1
@@ -283,7 +274,7 @@ class CustomDRVG(DRVG):
     def sample(self):
         return np.random.choice(len(self.p), p=self.p)
     
-    def simulate(self, n, plot = True, savepath = False):
+    def simulate(self, n, plot = False, savepath = False):
         data = [self.sample() for _ in range(n)]
         if plot:
             plt.hist(data, bins=len(self.p), range=(self.support[0], self.support[1]))

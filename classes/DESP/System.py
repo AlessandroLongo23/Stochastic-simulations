@@ -24,12 +24,14 @@ class System:
         ]
         
         self.interarrival_times = []
-        self.interarrival_times = self.parameters['interarrival_time_distribution'].simulate(n = self.parameters['n_customers'], U1 = U1, U2 = U2)['observed']
+        self.interarrival_times = self.parameters['interarrival_time_distribution'].simulate(n = self.parameters['n_customers'])['observed']
+        # self.interarrival_times = self.parameters['interarrival_time_distribution'].simulate(n = self.parameters['n_customers'], U1 = U1, U2 = U2)['observed']
         self.arrival_times = [sum(self.interarrival_times[:i + 1]) for i in range(len(self.interarrival_times))]
         if U3 is None:
             self.service_times = [None for _ in range(self.parameters['n_customers'])]
         else:
-            self.service_times = self.parameters['service_time_distribution'].simulate(n = self.parameters['n_customers'], U2 = U3)['observed']
+            self.service_times = self.parameters['service_time_distribution'].simulate(n = self.parameters['n_customers'])['observed']
+            # self.service_times = self.parameters['service_time_distribution'].simulate(n = self.parameters['n_customers'], U2 = U3)['observed']
 
         self.customers = [
             Customer(

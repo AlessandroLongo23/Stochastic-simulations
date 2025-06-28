@@ -53,7 +53,7 @@ class MCMC:
             return [conditional_density.sample(), X[i]]
 
 
-    def metropolis_hastings(self, n, method, domain = 'discrete', verbose = False, condition = lambda x: True):
+    def metropolis_hastings(self, n: int = 1000, method: str = 'mh_ordinary', domain: str = 'discrete', verbose: bool = False, condition: Callable = lambda x: True):
         vars_ = self.unnormalized_density.f.__code__.co_argcount
         X = None
         while True:
@@ -177,7 +177,7 @@ class CustomMCMC(MCMC):
         self.acceptance_count = 0
         self.total_proposals = 0
     
-    def get_proposal(self, X, method='mh_ordinary', domain='continuous'):
+    def get_proposal(self, X, method='mh_ordinary', domain='continuous', condition: Callable = lambda x: True):
         if domain == 'continuous':
             step_size = self.step_sizer.get_step_size()
             
@@ -192,7 +192,7 @@ class CustomMCMC(MCMC):
                     delta[np.random.randint(0, len(X))] = np.random.normal(0, step_size)
                 return [max(self.epsilon, x + d) for x, d in zip(X, delta)]
         else:
-            return super().get_proposal(X, method, domain)
+            return super().get_proposal(X, method, domain, condition)
     
     def accept_reject(self, X, proposal):
         if self.log_posterior_func is None:
@@ -239,7 +239,7 @@ class CustomMCMC(MCMC):
         
         return result
     
-    def metropolis_hastings(self, n, method, domain='discrete', verbose = False):
+    def metropolis_hastings(self, n, method, domain='discrete', verbose = False, condition: Callable = lambda x: True):
         vars_ = self.unnormalized_density.f.__code__.co_argcount
         
         if domain == 'discrete':
@@ -254,7 +254,7 @@ class CustomMCMC(MCMC):
                 X = [max(self.epsilon, 1.0), max(self.epsilon, 1.0)]
 
         for i in range(n):
-            proposal = self.get_proposal(X, method, domain)
+            proposal = self.get_proposal(X, method, domain, condition)
             accept_prob = self.accept_reject(X, proposal)
             X = self.update_chain(X, proposal, accept_prob)
             self.chain.append(X)

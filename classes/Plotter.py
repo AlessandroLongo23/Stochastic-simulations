@@ -34,7 +34,7 @@ class Plotter:
             plt.savefig(savepath)
         plt.show()
 
-    def plot_histogram(self, data, range_ = None, classes = 10, theoretical_density = None, x_label = 'Value', y_label = 'Frequency', title = 'Histogram of the data', savepath = None):
+    def plot_histogram(self, data, range_ = None, bins = 10, theoretical_density = None, x_label = 'Value', y_label = 'Frequency', title = 'Histogram of the data', savepath = None):
         if isinstance(data, (list, tuple)) and len(data) == 2 and all(isinstance(d, (list, tuple, np.ndarray)) for d in data):
             x_data, y_data = data
             is_2d = True
@@ -50,11 +50,12 @@ class Plotter:
                 raise ValueError(f"Unsupported data shape: {data_array.shape}. Expected 1D array, 2D array with 2 columns, or tuple/list of two 1D arrays.")
         
         if is_2d:
-            if isinstance(classes, (int, float)):
-                bins = [classes + 1, classes + 1]
-                range_ = [[-0.5, classes + 0.5], [-0.5, classes + 0.5]]
+            if isinstance(bins, (int, float)):
+                bins_ = [bins + 1, bins + 1]
+                range_ = [[-0.5, bins + 0.5], [-0.5, bins + 0.5]]
+                bins = bins_
             else:
-                bins = classes
+                bins = bins
                 range_ = None
 
             H, xedges, yedges = np.histogram2d(x_data, y_data, bins=bins, range=range_)
@@ -72,9 +73,9 @@ class Plotter:
                 print("Warning: theoretical_density parameter is ignored for 2D histograms")
         else:
             if range_ is not None: 
-                plt.hist(data, range = range_, bins=classes, edgecolor='black')
+                plt.hist(data, range = range_, bins=bins, edgecolor='black')
             else:
-                plt.hist(data, bins=classes, edgecolor='black')
+                plt.hist(data, bins=bins, edgecolor='black')
 
             if theoretical_density:
                 plt.plot(theoretical_density, 'r--', linewidth=2, label='Theoretical Density')
@@ -86,21 +87,23 @@ class Plotter:
             plt.savefig(savepath)
         plt.show()
 
-    def plot_density(self, data, x_label='Value', y_label='Density', title='Density of the data', savepath=None, x_range=None):
-        colors = ['b-', 'g-', 'r-', 'c-', 'm-', 'y-', 'k-']
-        
+    def plot_density(self, data, observed_plot_type = 'density', bins = 20, x_label='Value', y_label='Density', title='Density of the data', savepath=None, x_range=None):
         if isinstance(data, np.ndarray):
             data_list = data.tolist() if hasattr(data, 'tolist') else list(data)
             
-            if x_range:
-                combined_x_range = np.linspace(x_range[0], x_range[1], 100)
-            else:
-                x_min, x_max = min(data_list), max(data_list)
-                combined_x_range = np.linspace(x_min, x_max, 100)
-            
-            density = stats.gaussian_kde(data_list)
-            plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
-            plt.xlim([combined_x_range[0], combined_x_range[-1]])
+            if observed_plot_type == 'density':
+                if x_range:
+                    combined_x_range = np.linspace(x_range[0], x_range[1], 100)
+                else:
+                    x_min, x_max = min(data_list), max(data_list)
+                    combined_x_range = np.linspace(x_min, x_max, 100)
+                
+                density = stats.gaussian_kde(data_list)
+                plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
+                plt.xlim([combined_x_range[0], combined_x_range[-1]])
+
+            elif observed_plot_type == 'histogram':
+                plt.hist(data_list, bins=bins, density=True, alpha=0.6, label='Observed Histogram', color='blue', edgecolor='black', range=x_range)
             
         elif isinstance(data, dict):
             if x_range:
@@ -121,17 +124,30 @@ class Plotter:
                 if 'observed' not in dataset_info:
                     continue
                     
-                density = stats.gaussian_kde(dataset_info['observed'])
-                color = colors[i % len(colors)]
-                label_estimated = f'{dataset_info["label"]} - Estimated'
-                
-                plt.plot(
-                        combined_x_range, 
-                        density(combined_x_range), 
-                        color[0] + '-', 
-                        linewidth=2, 
-                        label=label_estimated,
+                if observed_plot_type == 'density':
+                    density = stats.gaussian_kde(dataset_info['observed'])
+                    label_estimated = f'{dataset_info["label"]} - Estimated'
+                    
+                    plt.plot(
+                            combined_x_range, 
+                            density(combined_x_range), 
+                            'b-', 
+                            linewidth=2, 
+                            label=label_estimated,
+                        )
+                elif observed_plot_type == 'histogram':
+                    label_observed = f'{dataset_info["label"]} - Observed Histogram'
+                    plt.hist(
+                        dataset_info['observed'],
+                        bins=bins,
+                        density=True,
+                        alpha=0.6,
+                        label=label_observed,
+                        color='blue',
+                        edgecolor='black',
+                        range=x_range
                     )
+
                 plt.xlim([combined_x_range[0], combined_x_range[-1]])
                 
                 label_theoretical = f'{dataset_info["label"]} - Theoretical'
@@ -139,22 +155,26 @@ class Plotter:
                 plt.plot(
                     combined_x_range, 
                     theoretical, 
-                    color[0] + '--', 
+                    'r--', 
                     linewidth=2, 
                     label=label_theoretical,
                 )
                 plt.xlim([combined_x_range[0], combined_x_range[-1]])
         
         elif isinstance(data, (list, tuple)):
-            if x_range:
-                combined_x_range = np.linspace(x_range[0], x_range[1], 100)
-            else:
-                x_min, x_max = min(data), max(data)
-                combined_x_range = np.linspace(x_min, x_max, 100)
-            
-            density = stats.gaussian_kde(data)
-            plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
-            plt.xlim([combined_x_range[0], combined_x_range[-1]])
+            if observed_plot_type == 'density':
+                if x_range:
+                    combined_x_range = np.linspace(x_range[0], x_range[1], 100)
+                else:
+                    x_min, x_max = min(data), max(data)
+                    combined_x_range = np.linspace(x_min, x_max, 100)
+                
+                density = stats.gaussian_kde(data)
+                plt.plot(combined_x_range, density(combined_x_range), 'b-', linewidth=2, label='Estimated Density')
+                plt.xlim([combined_x_range[0], combined_x_range[-1]])
+
+            elif observed_plot_type == 'histogram':
+                plt.hist(data, bins=bins, density=True, alpha=0.6, label='Observed Histogram', color='blue', edgecolor='black', range=x_range)
         
         else:
             raise TypeError(f"Unsupported data type: {type(data)}. Expected numpy.ndarray, dict, list, or tuple.")

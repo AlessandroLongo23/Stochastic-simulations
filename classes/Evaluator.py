@@ -4,9 +4,9 @@ import random
 import matplotlib.pyplot as plt
 import os
 import time
-from scipy.stats import ttest_ind, chisquare
+from scipy.stats import ttest_ind
 
-from classes.RNG import RNG
+from classes.RNG import RNG, LCG
 from classes.CRVG import CRVG, Pareto
 from classes.DRVG import DRVG, Discrete, Geometric
 from classes.Plotter import Plotter
@@ -42,8 +42,14 @@ class Evaluator:
         for idx, generator in enumerate(generators):
             Ts = []
 
+            if isinstance(generator, LCG):
+                points = [i / classes * generator.m for i in range(classes + 1)]
+                p = [1 / classes for i in range(classes)]
             if isinstance(generator, CRVG):
-                points = np.linspace(0, 50, 100).tolist()
+                if isinstance(generator, Pareto):
+                    points = np.linspace(1, 50, 100).tolist()
+                else:
+                    points = np.linspace(0, 50, 100).tolist()
                 p = [generator.cdf(points[i + 1]) - generator.cdf(points[i]) for i in range(len(points) - 1)]
             elif isinstance(generator, DRVG):
                 if isinstance(generator, Geometric):
@@ -603,12 +609,17 @@ class Evaluator:
         observed_variances = []
         for _ in range(simulations):
             data = generator.simulate(n = n, plot = False, savepath = False)
+            if isinstance(data, dict):
+                data = data['observed']
 
             observed_mean = sum(data) / len(data)
             observed_variance = sum((x - observed_mean) ** 2 for x in data) / len(data)
 
             observed_means.append(observed_mean)
             observed_variances.append(observed_variance)
+
+        mean_of_means = np.mean(observed_means)
+        mean_of_variances = np.mean(observed_variances)
 
         if generator.k > 1:
             theoretical_mean = generator.beta * generator.k / (generator.k - 1)
@@ -628,16 +639,20 @@ class Evaluator:
         if theoretical_mean != float('inf'):
             ax1.axvline(theoretical_mean, color='red', linestyle=':', linewidth=2, 
                        label=f'Theoretical Mean = {theoretical_mean:.3f}')
+        ax1.axvline(mean_of_means, color='blue', linestyle='--', linewidth=2,
+                    label=f'Observed Mean = {mean_of_means:.3f}')
         ax1.set_title('Distribution of Observed Means')
         ax1.set_xlabel('Mean')
         ax1.set_ylabel('Frequency')
         ax1.legend()
         ax1.grid(True, alpha=0.3)
         
-        ax2.hist(observed_variances, bins=400, alpha=0.7, color='lightcoral', edgecolor='black')
+        ax2.hist(observed_variances, bins=50, alpha=0.7, color='lightcoral', edgecolor='black')
         if theoretical_variance != float('inf'):
             ax2.axvline(theoretical_variance, color='red', linestyle=':', linewidth=2, 
                        label=f'Theoretical Variance = {theoretical_variance:.3f}')
+        ax2.axvline(mean_of_variances, color='blue', linestyle='--', linewidth=2,
+                    label=f'Observed Mean of Variances = {mean_of_variances:.3f}')
         ax2.set_title('Distribution of Observed Variances')
         ax2.set_xlabel('Variance')
         ax2.set_ylabel('Frequency')

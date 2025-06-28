@@ -10,7 +10,7 @@ class Composition:
     def sample(self):
         return sum(rvg.sample() * weight for rvg, weight in zip(self.rvgs, self.weights))
     
-    def simulate(self, n, plot = True, savepath = False):
+    def simulate(self, n, plot = False, savepath = False):
         data = []
 
         for _ in range(n):

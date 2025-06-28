@@ -11,6 +11,12 @@ class LCG(RNG):
         self.name = 'LCG'
         self.builtin = builtin
 
+    def pdf(self, x: int) -> float:
+        return 1 / self.m if 0 <= x < self.m else 0
+    
+    def cdf(self, x: int) -> float:
+        return x / self.m if 0 <= x < self.m else 0 if x < 0 else 1
+
     def set_parameters(self, a: int, c: int, m: int):
         self.a = a
         self.c = c

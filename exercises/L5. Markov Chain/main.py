@@ -26,10 +26,11 @@ def exercise_1():
     normalized_density = Function(lambda x: unnormalized_density.evaluate(x) / c)
 
     Ts = []
-    for _ in range(1):
+    for _ in range(1000):
         mcmc.run(n = n, burn_in = burn_in, method = 'mh_ordinary')
-        plotter.plot_function(normalized_density, title = 'Normalized Density', x_label = 'x', y_label = 'f(x)', savepath = f'L5. Markov Chain/plots/Ex1_density.png')
-        plotter.plot_histogram(mcmc.chain, classes = mcmc.m + 1, title = 'Histogram of the chain', x_label = 'i', y_label = 'Frequency', savepath = f'L5. Markov Chain/plots/Ex1_chain.png')
+        mcmc.thin(gap = 10)
+        # plotter.plot_function(normalized_density, title = 'Normalized Density', x_label = 'x', y_label = 'f(x)')
+        # plotter.plot_histogram(mcmc.chain, bins = mcmc.m + 1, title = 'Histogram of the chain', x_label = 'i', y_label = 'Frequency')
         
         # fig, ax = plt.subplots(figsize=(10, 6))
         
@@ -57,12 +58,12 @@ def exercise_1():
         T = 0
         for i in range(m + 1):
             observed = len([x for x in mcmc.chain if x == i])
-            expected = normalized_density.evaluate(i) * (n - burn_in)
+            expected = normalized_density.evaluate(i) * len(mcmc.chain)
             T += ((observed - expected) ** 2) / expected
 
         Ts.append(T)
 
-    # plotter.plot_histogram(Ts, classes = 100, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency', savepath = 'L5. Markov Chain/plots/Ex1.png')
+    plotter.plot_histogram(Ts, bins = 25, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency')
 
 
 def exercise_2():
@@ -71,9 +72,9 @@ def exercise_2():
     A1, A2 = 4, 4
     m = 10
     n = 1000
-    gap = 10
+    gap = n // 20
     burn_in = n // 5
-    unnormalized_density = Function(lambda x, y: (A1 ** x) / (math.factorial(x)) * (A2 ** y) / (math.factorial(y)))
+    unnormalized_density = Function(lambda x, y: (A1 ** x) / (math.factorial(x)) * (A2 ** y) / (math.factorial(y)) if x + y <= m else 0)
     mcmc = MCMC(
         unnormalized_density = unnormalized_density,
         m = m
@@ -82,14 +83,18 @@ def exercise_2():
     c = sum([unnormalized_density.evaluate([x, y]) for x in range(0, m + 1) for y in range(0, m + 1) if x + y <= m])
     normalized_density = Function(lambda x, y: unnormalized_density.evaluate([x, y]) / c)
 
-    methods = ['mh_ordinary', 'mh_coordinate_wise', 'gibbs']
+    methods = [
+        'mh_ordinary', 
+        'mh_coordinate_wise', 
+        'gibbs'
+    ]
     Ts = []
 
     for method in methods:
         for _ in range(100):
             mcmc.run(n = n, burn_in = burn_in, method = method, condition = lambda x: x[0] + x[1] <= m)
             mcmc.thin(gap = gap)
-            # plotter.plot_histogram(mcmc.chain, classes = mcmc.m, title = f'Histogram of the chain ({method})', x_label = 'i', y_label = 'j', savepath = None)
+            # plotter.plot_histogram(mcmc.chain, bins = mcmc.m, title = f'Histogram of the chain ({method})', x_label = 'i', y_label = 'j', savepath = None)
 
             T = 0
             for i in range(m + 1):
@@ -102,7 +107,7 @@ def exercise_2():
 
             Ts.append(T)
 
-        plotter.plot_histogram(Ts, classes = m + 1, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency', savepath = None)
+        plotter.plot_histogram(Ts, bins = 25, title = 'Histogram of T', x_label = 'T', y_label = 'Frequency', savepath = None)
 
 def exercise_3():
     sample_sizes = [10, 100, 1000]
@@ -258,7 +263,7 @@ def plot_results(results_list):
         axes[1, i].legend()
     
     plt.tight_layout()
-    plt.savefig('L5. Markov Chain/plots/posterior_comparison.png')
+    # plt.savefig()
     plt.show()
     plt.close()
 
@@ -292,5 +297,5 @@ def plot_results(results_list):
 
 if __name__ == "__main__":
     # exercise_1()
-    exercise_2()
-    # exercise_3()
+    # exercise_2()
+    exercise_3()

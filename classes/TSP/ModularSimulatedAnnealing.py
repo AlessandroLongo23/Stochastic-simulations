@@ -39,8 +39,7 @@ class ModularSimulatedAnnealing:
             self.best_solution_snapshots = {}
             self.iteration_snapshots = []
     
-    def run(self, cost_matrix: np.ndarray, n_iterations: int, 
-            coordinates: Optional[np.ndarray] = None) -> np.ndarray:
+    def run(self, cost_matrix: np.ndarray, n_iterations: int, coordinates: Optional[np.ndarray] = None, verbose: bool = True) -> np.ndarray:
         
         self.cost_matrix = cost_matrix
         self.coordinates = coordinates
@@ -48,11 +47,12 @@ class ModularSimulatedAnnealing:
         
         self._initialize()
         
-        print(f"Starting {self.name} with {n_iterations:,} iterations...")
-        print(f"Components: {self.initialization_strategy.__class__.__name__}, "
-              f"{self.temperature_schedule.__class__.__name__}, "
-              f"{self.proposal_generator.__class__.__name__}")
-        print(f"Initial cost: {self.current_cost:.2f}")
+        if verbose:
+            print(f"Starting {self.name} with {n_iterations:,} iterations...")
+            print(f"Components: {self.initialization_strategy.__class__.__name__}, "
+                f"{self.temperature_schedule.__class__.__name__}, "
+                f"{self.proposal_generator.__class__.__name__}")
+            print(f"Initial cost: {self.current_cost:.2f}")
         
         for self.iteration in range(1, n_iterations + 1):
             self._step()
@@ -61,12 +61,15 @@ class ModularSimulatedAnnealing:
                 progress = self.iteration / n_iterations * 100
                 improvement = ((self.cost_history[0] - self.best_cost) / self.cost_history[0] * 100)
                 current_temp = self.temperature_schedule.get_temperature(self.iteration)
-                print(f"Progress: {progress:.1f}% - Current: {self.current_cost:.2f}, "
-                      f"Best: {self.best_cost:.2f} ({improvement:.1f}% improvement), "
-                      f"T: {current_temp:.4f}")
+
+                if verbose:
+                    print(f"Progress: {progress:.1f}% - Current: {self.current_cost:.2f}, "
+                          f"Best: {self.best_cost:.2f} ({improvement:.1f}% improvement), "
+                          f"T: {current_temp:.4f}")
         
-        print(f"Optimization complete! Final best cost: {self.best_cost:.2f}")
-        return self.best_solution.copy()
+        if verbose:
+            print(f"Optimization complete! Final best cost: {self.best_cost:.2f}")
+        return self.best_solution.copy(), self.best_cost
     
     def _initialize(self):
         self.iteration = 0

@@ -23,12 +23,12 @@ def part1() -> None:
         data = lcg.simulate(seed = 325, n = 10000)
 
         plotter = Plotter()
-        plotter.plot_histogram(data, classes = 10, savepath = f'histogram_{a}_{c}_{m}.png')
+        plotter.plot_histogram(data, bins = 10, savepath = f'histogram_{a}_{c}_{m}.png')
         plotter.plot_scatter(data[:-1], data[1:], savepath = f'scatter_{a}_{c}_{m}.png')
 
         # 1.b. Run statistical tests
         evaluator = Evaluator()
-        evaluator.run_all_tests(generators = [lcg], n = 10000, simulations = 1)
+        evaluator.run_GOF_tests(generators = [lcg], n = 10000, simulations = 100)
 
 
 def part2() -> None:
@@ -36,11 +36,11 @@ def part2() -> None:
     data = builtin_lcg.simulate()
 
     plotter = Plotter()
-    plotter.plot_histogram(data, classes = 10, savepath = 'histogram.png')
+    plotter.plot_histogram(data, bins = 10, savepath = 'histogram.png')
     plotter.plot_scatter(data[:-1], data[1:], savepath = 'scatter.png')
 
     evaluator = Evaluator()
-    evaluator.run_all_tests(generators = [builtin_lcg], n = 10000, simulations = 1)
+    evaluator.run_GOF_tests(generators = [builtin_lcg], n = 1000, simulations = 1000)
 
 def part3() -> None:
     lcg = LCG()
@@ -64,6 +64,6 @@ def part4() -> None:
 
 if __name__ == "__main__":
     # part1()
-    # part2()
+    part2()
     # part3()
-    part4()
+    # part4()

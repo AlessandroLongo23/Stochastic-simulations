@@ -26,7 +26,7 @@ def main():
     ## DISTRIBUTION FOR INTERARRIVAL TIME
 
     interarrival_time_distribution = Exponential(lambda_ = 1 / mean_interarrival_time)
-    # interarrival_time_distribution = Erlang(k = 1, lambda_ = 1)
+    # interarrival_time_distribution = Erlang(k = 2, lambda_ = 1)
     # interarrival_time_distribution = HyperExponential(lambdas = [0.8333, 5], weights = [0.8, 0.2])
     # interarrival_time_distribution = Constant(value = mean_interarrival_time)
 
@@ -42,25 +42,25 @@ def main():
     )
     system.simulate(verbose = True)
 
-    variance_of_difference(
-        same_seed = True, 
-        num_service_units = num_service_units, 
-        service_time_distribution = service_time_distribution, 
-        interarrival_time_distribution1 = Exponential(lambda_ = 1 / mean_interarrival_time),
-        interarrival_time_distribution2 = HyperExponential(lambdas = [0.8333, 5], weights = [0.8, 0.2]),
-        n_customers = 10000,
-        n_runs = 10
-    )
+    # variance_of_difference(
+    #     same_seed = True, 
+    #     num_service_units = num_service_units, 
+    #     service_time_distribution = service_time_distribution, 
+    #     interarrival_time_distribution1 = Exponential(lambda_ = 1 / mean_interarrival_time),
+    #     interarrival_time_distribution2 = HyperExponential(lambdas = [0.8333, 5], weights = [0.8, 0.2]),
+    #     n_customers = 10000,
+    #     n_runs = 10
+    # )
 
-    variance_of_difference(
-        same_seed = False, 
-        num_service_units = num_service_units, 
-        service_time_distribution = service_time_distribution, 
-        interarrival_time_distribution1 = Exponential(lambda_ = 1 / mean_interarrival_time),
-        interarrival_time_distribution2 = HyperExponential(lambdas = [0.8333, 5], weights = [0.8, 0.2]),
-        n_customers = 10000,
-        n_runs = 10
-    )
+    # variance_of_difference(
+    #     same_seed = False, 
+    #     num_service_units = num_service_units, 
+    #     service_time_distribution = service_time_distribution, 
+    #     interarrival_time_distribution1 = Exponential(lambda_ = 1 / mean_interarrival_time),
+    #     interarrival_time_distribution2 = HyperExponential(lambdas = [0.8333, 5], weights = [0.8, 0.2]),
+    #     n_customers = 10000,
+    #     n_runs = 10
+    # )
 
 
 def variance_of_difference(same_seed : bool = False, num_service_units = 10, service_time_distribution = None, interarrival_time_distribution1 = None, interarrival_time_distribution2 = None, n_customers = 10000, n_runs = 10):
