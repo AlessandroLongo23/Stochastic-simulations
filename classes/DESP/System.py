@@ -54,6 +54,7 @@ class System:
             self.initialize()
             self.run()
 
+        self.compute_statistics()
         if verbose:
             self.print_statistics()
             self.ordinary_estimator()
@@ -75,7 +76,6 @@ class System:
         offered_load = total_service_time / total_arrival_time
         self.offered_loads.append(offered_load)
 
-
     def assign_customer_to_free_service_unit(self, customer: Customer, service_time: float = None):
         for service_unit in self.service_units:
             service_unit.check_if_free(self.time)
@@ -84,76 +84,84 @@ class System:
                 service_unit.serve_customer(customer, service_time)
                 return False
         return True
-
-    def print_statistics(self):
-        print(f"""
----------------------------------- Statistics --------------------------------------------
-              
-Service time:
-- Empirical mean: {float(np.mean(self.statistics['service_times']))}
-- Empirical var: {float(np.std(self.statistics['service_times']) ** 2)}
-
-Interarrival time:
-- Empirical mean: {float(np.mean(self.interarrival_times))}
-- Empirical var: {float(np.std(self.interarrival_times) ** 2)}
-""")
     
-    def ordinary_estimator(self):
+    def compute_statistics(self):
+        self.statistics['service_time_mean'] = float(np.mean(self.statistics['service_times']))
+        self.statistics['service_time_variance'] = float(np.std(self.statistics['service_times']) ** 2)
+        self.statistics['interarrival_time_mean'] = float(np.mean(self.interarrival_times))
+        self.statistics['interarrival_time_variance'] = float(np.std(self.interarrival_times) ** 2)
+    
         n_runs = self.parameters['n_runs']
+
         fraction_blocked = [self.blocked_customers[i] / self.parameters['n_customers'] for i in range(self.parameters['n_runs'])]
-        emp_mean = sum(fraction_blocked) / n_runs
-        emp_var = np.var(fraction_blocked)
-        emp_std = np.std(fraction_blocked)
+        self.statistics['blocking_probability_mean'] = sum(fraction_blocked) / n_runs
+        self.statistics['blocking_probability_variance'] = np.var(fraction_blocked)
+        self.statistics['blocking_probability_std'] = np.std(fraction_blocked)
 
         t = 2.262 # 95% confidence level, n_runs = 10
-        blocking_probability_confidence_interval = (
-            float(emp_mean - t * emp_std / math.sqrt(n_runs)),
-            float(emp_mean + t * emp_std / math.sqrt(n_runs))
+        self.statistics['blocking_probability_confidence_interval'] = (
+            float(self.statistics['blocking_probability_mean'] - t * self.statistics['blocking_probability_std'] / math.sqrt(n_runs)),
+            float(self.statistics['blocking_probability_mean'] + t * self.statistics['blocking_probability_std'] / math.sqrt(n_runs))
         )
 
         A = self.parameters['interarrival_time_distribution'].mean() * self.parameters['service_time_distribution'].mean()
         m = self.parameters['n_service_units']
         num = A ** m / math.factorial(m)
         den = sum(A ** i / math.factorial(i) for i in range(m + 1))
-        theoretical_blocking_probability = num / den
+        self.statistics['theoretical_blocking_probability'] = num / den
 
+    def print_statistics(self):
+        print(f"""
+---------------------------------- Statistics --------------------------------------------
+
+Service time:
+- Empirical mean: {self.statistics['service_time_mean']}
+- Empirical var: {self.statistics['service_time_variance']}
+
+Interarrival time:
+- Empirical mean: {self.statistics['interarrival_time_mean']}
+- Empirical var: {self.statistics['interarrival_time_variance']}
+""")
+    
+    def ordinary_estimator(self):
         print(f"""
 ---------------------------------- Ordinary estimator --------------------------------------------
 
 Blocking probability:
-- Empirical mean: {emp_mean}
-- Empirical variance: {emp_var}
-- Confidence interval: {blocking_probability_confidence_interval}
-- Theoretical value: {theoretical_blocking_probability}
+- Empirical mean: {self.statistics['blocking_probability_mean']}
+- Empirical variance: {self.statistics['blocking_probability_variance']}
+- Confidence interval: {self.statistics['blocking_probability_confidence_interval']}
+- Theoretical value: {self.statistics['theoretical_blocking_probability']}
         """)
 
 
     def control_estimator(self):
         fraction_blocked = [self.blocked_customers[i] / self.parameters['n_customers'] for i in range(self.parameters['n_runs'])]
-        mean_fraction_blocked = sum(fraction_blocked) / self.parameters['n_runs']
-        mean_offered_load = sum(self.offered_loads) / self.parameters['n_runs']
-        temp = [(fraction_blocked[i] - mean_fraction_blocked) * (self.offered_loads[i] - mean_offered_load) for i in range(self.parameters['n_runs'])]
+        self.statistics['mean_fraction_blocked'] = sum(fraction_blocked) / self.parameters['n_runs']
+        self.statistics['mean_offered_load'] = sum(self.offered_loads) / self.parameters['n_runs']
+        temp = [(fraction_blocked[i] - self.statistics['mean_fraction_blocked']) * (self.offered_loads[i] - self.statistics['mean_offered_load']) for i in range(self.parameters['n_runs'])]
         sample_cov = 1 / (self.parameters['n_runs'] - 1) * sum(temp)
         
-        temp = [(self.offered_loads[i] - mean_offered_load) ** 2 for i in range(self.parameters['n_runs'])]
-        sample_var_offered_load = 1 / (self.parameters['n_runs'] - 1) * sum(temp)
+        temp = [(self.offered_loads[i] - self.statistics['mean_offered_load']) ** 2 for i in range(self.parameters['n_runs'])]
+        self.statistics['sample_var_offered_load'] = 1 / (self.parameters['n_runs'] - 1) * sum(temp)
 
-        c = sample_cov / sample_var_offered_load
+        self.statistics['c'] = sample_cov / self.statistics['sample_var_offered_load']
 
-        better_estimates = [fraction_blocked[i] - c * (self.offered_loads[i] - mean_offered_load) for i in range(self.parameters['n_runs'])]
-        mean_better_estimates = np.mean(better_estimates)
-        variance_better_estimates = np.var(better_estimates)
-        better_estimates_confidence_interval = (
-            float(mean_better_estimates - 1.96 * np.sqrt(variance_better_estimates / self.parameters['n_runs'])),
-            float(mean_better_estimates + 1.96 * np.sqrt(variance_better_estimates / self.parameters['n_runs']))
+        better_estimates = [fraction_blocked[i] - self.statistics['c'] * (self.offered_loads[i] - self.statistics['mean_offered_load']) for i in range(self.parameters['n_runs'])]
+        self.statistics['mean_better_estimates'] = np.mean(better_estimates)
+        self.statistics['variance_better_estimates'] = np.var(better_estimates)
+
+        self.statistics['better_estimates_confidence_interval'] = (
+            float(self.statistics['mean_better_estimates'] - 1.96 * np.sqrt(self.statistics['variance_better_estimates'] / self.parameters['n_runs'])),
+            float(self.statistics['mean_better_estimates'] + 1.96 * np.sqrt(self.statistics['variance_better_estimates'] / self.parameters['n_runs']))
         )
 
         print(f"""
 ---------------------------------- Control estimator --------------------------------------------
               
 Blocking probability:
-- Empirical mean: {mean_better_estimates}
-- Empirical variance: {variance_better_estimates}
-- Confidence interval: {better_estimates_confidence_interval}
-- c: {c}
+- Empirical mean: {self.statistics['mean_better_estimates']}
+- Empirical variance: {self.statistics['variance_better_estimates']}
+- Confidence interval: {self.statistics['better_estimates_confidence_interval']}
+- c: {self.statistics['c']}
 """)
